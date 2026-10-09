@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Builds the Explore export for defileViz from the defile-dataset release tables.
 
-Reads `data/count/dataset/` (copied by `python scripts/build_counts.py --dataset <dir>`) and writes
+Reads the release in `data/count/dataset/` (copied there with `--dataset <dir>`) and writes
 `data/explore/`: `manifest.json`, `taxa.json`, `effort.json`, `reports.json` and
 `species/<taxon_id>.json`, with French names from the eBird taxonomy (downloaded once, no key).
-`src/explore/` documents each file. Raw values are aggregations of the release; the species files'
+`src/defile_explore/` documents each file. Raw values are aggregations of the release; the species files'
 effort-adjusted values and `trend` (the GAM, about 1 min for the full tier on 12 cores, after
 ~80 s of time-of-day profiles) are labelled as such. Copy the folder to defileViz's `public/data/explore/` to publish it.
 
 Usage:
-    python scripts/build_explore.py
+    python scripts/build_explore.py --dataset ../defile-dataset/output   # copy a release, then build
+    python scripts/build_explore.py                # rebuild from data/count/dataset/
     python scripts/build_explore.py --skip-trend   # seconds, without the trend model
     python scripts/build_explore.py --out ../defileViz/public/data/explore
 """
@@ -21,21 +22,30 @@ import subprocess
 import urllib.request
 
 import pandas as pd
-import rootutils
 
-rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+from defile_explore import export as E  # noqa: E402
+from defile_explore import profile as P  # noqa: E402
+from defile_explore import release as R  # noqa: E402
+from defile_explore import trend as T  # noqa: E402
 
-from src.explore import export as E  # noqa: E402
-from src.explore import profile as P  # noqa: E402
-from src.explore import trend as T  # noqa: E402
-
-ROOT = rootutils.find_root(__file__, indicator=".project-root")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def write(path: str, obj) -> int:
     with open(path, "w", encoding="utf-8") as f:
         f.write(E.dumps(obj))
     return os.path.getsize(path)
+
+
+def copy_release(release: str, data_dir: str) -> None:
+    """Copy a defile-dataset release (its `dataset/` tables and `metadata.json`) into
+    `<data_dir>/count/dataset/`."""
+    folder = os.path.join(data_dir, R.DATASET_DIR)
+    os.makedirs(folder, exist_ok=True)
+    for f in R.DATASET_FILES:
+        shutil.copy2(os.path.join(release, "dataset", f), os.path.join(folder, f))
+    shutil.copy2(os.path.join(release, R.METADATA_FILE), os.path.join(folder, R.METADATA_FILE))
+    print(f"Copied the release from {release} to {folder}")
 
 
 def trend_of(args) -> tuple[str, dict]:
@@ -55,7 +65,7 @@ def trend_of(args) -> tuple[str, dict]:
 
 
 def trends(taxa, days, hourly, effort, profiles, source, last_year: int, workers: int) -> dict:
-    """The GAM trend (`src.explore.trend.taxon_trend`) of every full-tier taxon of a rank in
+    """The GAM trend (`defile_explore.trend.taxon_trend`) of every full-tier taxon of a rank in
     `TREND_RANKS`, in parallel."""
     full = taxa[(taxa["tier"] == "full") & taxa["taxon_rank"].isin(T.TREND_RANKS)]
     jobs = [
@@ -82,6 +92,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--data-dir", default=os.path.join(ROOT, "data"))
     ap.add_argument("--out", default=os.path.join(ROOT, "data", "explore"))
+    ap.add_argument("--dataset", help="defile-dataset output folder to copy the release from")
     ap.add_argument(
         "--refresh-names", action="store_true", help="download the eBird taxonomy again"
     )
@@ -89,6 +100,8 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=os.cpu_count() or 1)
     args = ap.parse_args(argv)
 
+    if args.dataset:
+        copy_release(args.dataset, args.data_dir)
     names_path = os.path.join(args.data_dir, E.EBIRD_TAXONOMY_FILE)
     if args.refresh_names or not os.path.exists(names_path):
         urllib.request.urlretrieve(E.EBIRD_TAXONOMY_URL, names_path)

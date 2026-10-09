@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Benchmarks the Explore trend model (`src.explore.trend`: the GAM, with the season-only
-reference) on a few taxa (issue #55). A Gaussian-process variant was benchmarked here too and
-dropped: `DECISIONS.md` -> Explore.
+"""Benchmarks the Explore trend model (`defile_explore.trend`: the GAM, with the season-only
+reference) on a few taxa (defile-migration-forecast issue #55). A Gaussian-process variant was
+benchmarked here too and dropped: `DECISIONS.md` -> Explore.
 
 Two tests, each on the taxon's years from its start year to the last complete season:
 
@@ -34,17 +34,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-import rootutils  # noqa: E402
 from matplotlib.backends.backend_pdf import PdfPages  # noqa: E402
 from scipy.special import logsumexp  # noqa: E402
 
-rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+from defile_explore import export as E  # noqa: E402
+from defile_explore import profile as P  # noqa: E402
+from defile_explore import trend as T  # noqa: E402
 
-from src.explore import export as E  # noqa: E402
-from src.explore import profile as P  # noqa: E402
-from src.explore import trend as T  # noqa: E402
-
-ROOT = rootutils.find_root(__file__, indicator=".project-root")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TAXA = (
     "Black Kite",
     "European Honey Buzzard",

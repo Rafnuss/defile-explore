@@ -1,0 +1,9 @@
+# generated or copied, never committed
+data/
+logs/
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store

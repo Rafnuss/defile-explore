@@ -1,5 +1,5 @@
 """Trend model for the Explore page: one taxon's smooth trend, season and phenology shift, and
-gap-filled annual totals. Part of `src.explore` (see its `__init__` for the boundary).
+gap-filled annual totals. Part of `defile_explore`.
 
 A GAM, benchmarked by `scripts/benchmark_trend.py` (`DECISIONS.md` -> Explore has why a GAM):
 
@@ -7,7 +7,7 @@ A GAM, benchmarked by `scripts/benchmark_trend.py` (`DECISIONS.md` -> Explore ha
     eta = a + trend(year) + year_effect(year) + season(doy) + shift(year, doy)
           + episode_year(doy)
 
-`c_day` is the day's coverage (`src.explore.profile.coverage`: the share of the day's expected
+`c_day` is the day's coverage (`defile_explore.profile.coverage`: the share of the day's expected
 passage in the hours counted), `year_effect` an independent level per year (good and bad years),
 `shift` a smooth change of the season's timing or width over the years, and `episode` a short-range
 curve of its own each year: runs of good or bad migration days, the weather's share, which a
@@ -57,8 +57,8 @@ from scipy.interpolate import BSpline
 from scipy.linalg import cho_factor, cho_solve, solve_triangular
 from scipy.special import gammaln
 
-from src.explore.export import COMBINED_RANK, HOURS, in_window
-from src.explore.profile import PROFILE_DOY, PROFILE_MIN_TIMED, coverage
+from defile_explore.export import COMBINED_RANK, HOURS, in_window
+from defile_explore.profile import PROFILE_DOY, PROFILE_MIN_TIMED, coverage
 
 VARIANTS = ("season", "gam")
 # Ranks whose trend is exported: unidentified birds ("spuh", e.g. falcon sp.) trend with how hard

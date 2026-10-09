@@ -1,19 +1,18 @@
-"""Tests for the Explore export (src/explore/), on small synthetic release tables, and on the real
-release when it is present in `data/count/dataset/`: the export must reconcile with `count.csv`,
-and with the dataset's own daily totals when its interim build sits next to this repo."""
+"""Tests for the Explore export (src/defile_explore/), on small synthetic release tables, and on
+the real release when it is present in `data/count/dataset/`: the export must reconcile with
+`count.csv`, and with the dataset's own daily totals when its interim build sits next to this
+repo."""
 
-import ast
 import os
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from src.data import counts as C
-from src.explore import export as E
-from src.explore import profile as P
-from src.explore import trend as T
+from defile_explore import export as E
+from defile_explore import profile as P
+from defile_explore import release as C
+from defile_explore import trend as T
 
 DAY = "2023-08-01"
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -387,35 +386,6 @@ def test_nothing_adjusted_before_start_year():
     assert P.adjust_days(days, effort, c, 2007)["adjusted"].isna().tolist() == [True, False]
     a = P.annual_index(days, effort, c, 2007).set_index("year")["index"]
     assert np.isnan(a[2000]) and a[2010] == 7
-
-
-ROOT = Path(__file__).resolve().parents[1]
-EXPLORE_USERS = {
-    "scripts/build_explore.py",
-    "scripts/analyse_explore_effort.py",
-    "scripts/benchmark_trend.py",
-}
-
-
-def test_forecast_code_does_not_import_explore():
-    """The boundary in `src/explore/__init__.py`: only the explore scripts (and this test) import
-    `src.explore`; the forecast reaches its results through files, never imports."""
-    offenders = []
-    for path in [*ROOT.glob("src/**/*.py"), *ROOT.glob("scripts/**/*.py")]:
-        rel = path.relative_to(ROOT).as_posix()
-        if rel.startswith("src/explore/") or rel in EXPLORE_USERS:
-            continue
-        for node in ast.walk(ast.parse(path.read_text())):
-            names = (
-                [a.name for a in node.names]
-                if isinstance(node, ast.Import)
-                else [node.module or ""]
-                if isinstance(node, ast.ImportFrom)
-                else []
-            )
-            if any(n == "src.explore" or n.startswith("src.explore.") for n in names):
-                offenders.append(rel)
-    assert not offenders, f"forecast code importing src.explore: {offenders}"
 
 
 # --- trend ------------------------------------------------------------------

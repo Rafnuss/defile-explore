@@ -1,20 +1,20 @@
 """Effort adjustment for the Explore page: a time-of-day profile per taxon, and coverage.
 
-Part of `src.explore` (see its `__init__` for the boundary with the forecast). Variant A of the
-baseline, provisional until compared with a Gaussian-process variant (DECISIONS.md -> Explore): a
-taxon's profile p(h | doy) (its own, else its group's, else uniform over daylight), fitted with the
-model's own ratio GAM (`src.phenology.fit_ratio_surface`), gives each counted day a coverage `c`,
-the share of that day's expected passage in the hours counted. The adjusted day is count / c, and
-the annual index is Σ birds / Σ c over counted days in the window: birds per full-day equivalent.
-Neither is given below `COVERAGE_MIN`, nor before the taxon's `start_year`.
+Part of `defile_explore`. Variant A of the baseline, provisional until compared with a Gaussian-
+process variant (DECISIONS.md -> Explore): a taxon's profile p(h | doy) (its own, else its group's,
+else uniform over daylight), fitted with the time-of-day GAM
+(`defile_explore.timeofday.fit_ratio_surface`, a copy of the forecast's), gives each counted day a
+coverage `c`, the share of that day's expected passage in the hours counted. The adjusted day is
+count / c, and the annual index is Σ birds / Σ c over counted days in the window: birds per full-
+day equivalent. Neither is given below `COVERAGE_MIN`, nor before the taxon's `start_year`.
 """
 
 import numpy as np
 import pandas as pd
 
-from src.data.counts import civil_twilight
-from src.explore.export import HOURS, hours_per_clock_hour, in_window, to_local
-from src.phenology import RATIO_WEIGHT_POWER, fit_ratio_surface
+from defile_explore.export import HOURS, hours_per_clock_hour, in_window, to_local
+from defile_explore.release import civil_twilight
+from defile_explore.timeofday import RATIO_WEIGHT_POWER, fit_ratio_surface
 
 # A species' profile p(h | doy) is the share of its full-day passage in each local clock hour,
 # fitted on days timed to the hour (`profile_samples`) and used to say how much of that day's

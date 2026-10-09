@@ -23,7 +23,7 @@ Files, written by `scripts/build_explore.py` (one `build_*` function each):
   and local counts, the share of birds timed to the hour, the day's coverage `c` and the
   effort-adjusted count; per local hour, the birds timed to it; per year, totals and the
   effort-adjusted index; the time-of-day profile used; the species' report texts; and for
-  full-tier species and combined series, `trend` (`src.explore.trend.taxon_trend`): gap-filled
+  full-tier species and combined series, `trend` (`defile_explore.trend.taxon_trend`): gap-filled
   annual totals with intervals, the smooth trend, the median passage date per year, the smooth
   season in the first and last year, and each year's season with and without its weather episodes.
 - `reports.json`: the report texts that are not about one species (site, monitoring, weather,
@@ -39,7 +39,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from src.data.counts import (
+from defile_explore.release import (
     DATASET_DIR,
     MAIN_CATEGORY,
     METADATA_FILE,
@@ -49,7 +49,6 @@ from src.data.counts import (
     parse_counts,
     parse_surveys,
 )
-from src.metrics import ERA_EDGES
 
 # Bump when a field's meaning changes, so defileViz can refuse an export it does not understand.
 DEFINITIONS_VERSION = 1
@@ -76,7 +75,7 @@ TIER_RARE_MAX_DAYS = 10
 # recorded only with at least `START_MIN_YEAR_BIRDS` of the taxon's median year since 2007: a few
 # birds noted in a year it was not counted (swallows 2000-2006: under 1% of a year since) are not
 # a series. A floor relative to recent years also penalises a real increase, so it stays low.
-SYSTEMATIC_FROM = ERA_EDGES[0]
+SYSTEMATIC_FROM = 1993  # daily systematic counting starts (defile-dataset sampling history)
 ALL_GROUPS_FROM = 2007
 TARGET_ORDERS = {
     "Accipitriformes",

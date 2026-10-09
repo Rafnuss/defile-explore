@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Compares effort normalisations for the Explore page's annual series (issue #55).
+"""Compares effort normalisations for the Explore page's annual series (defile-migration-forecast
+issue #55).
 
 For a few species: the time-of-day profile p(h | doy) at three dates; its stability between hourly
 sheets (2014-2020) and Trektellen entry times (2021-2026), the only timed counts; and four annual series in the default window, each scaled to its own
@@ -20,15 +21,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-import rootutils  # noqa: E402
 
-rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+from defile_explore import export as E  # noqa: E402
+from defile_explore import profile as P  # noqa: E402
 
-from src.explore import export as E  # noqa: E402
-from src.explore import profile as P  # noqa: E402
-from src.metrics import ERA_EDGES  # noqa: E402
-
-ROOT = rootutils.find_root(__file__, indicator=".project-root")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPECIES = (
     "Black Kite",
     "European Honey Buzzard",
@@ -114,19 +111,19 @@ def main(argv=None) -> int:
         cov = (P.coverage(effort, p).groupby(effort["date"].dt.year).mean()).reindex(a.index)
         ax2.bar(a.index, cov, color="C2", alpha=0.15)
         ax2.set(ylim=(0, 1), ylabel="mean c per day")
-        row[2].axvline(ERA_EDGES[0] - 0.5, color="grey", lw=0.5)
+        row[2].axvline(E.SYSTEMATIC_FROM - 0.5, color="grey", lw=0.5)
         row[2].set(title=f"{name}: annual, scaled to {REFERENCE_YEARS} mean", yscale="log")
         row[2].legend(SERIES, fontsize=7, loc="upper left")
 
-        early = scaled.loc[: ERA_EDGES[0] - 1].median()
+        early = scaled.loc[: E.SYSTEMATIC_FROM - 1].median()
         summary.append(
             {
                 "species": name,
                 "source": source[tid],
                 "timed_birds": int(h["count"].sum()),
                 "tv_periods": round(float(np.median(tv)), 3),
-                **{f"pre{ERA_EDGES[0]}_{k}": round(float(v), 2) for k, v in early.items()},
-                "c_median_pre": round(float(cov.loc[: ERA_EDGES[0] - 1].median()), 2),
+                **{f"pre{E.SYSTEMATIC_FROM}_{k}": round(float(v), 2) for k, v in early.items()},
+                "c_median_pre": round(float(cov.loc[: E.SYSTEMATIC_FROM - 1].median()), 2),
                 "c_median_post2015": round(float(cov.loc[2015:].median()), 2),
             }
         )
