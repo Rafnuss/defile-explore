@@ -1,7 +1,7 @@
 """Defile-explore: the data and statistics behind defileViz's Explore page.
 
 - `release`: reading the defile-dataset release tables.
-- `export`: a raw aggregation of those tables (daily totals, effort, taxa, reports), written as
+- `export`: a raw aggregation of those tables (daily totals, effort, taxa), written as
   JSON by `scripts/build_explore.py`. No model processing.
 - `timeofday`: the time-of-day GAM, a smooth (doy, hour) surface of an hour's share of the day.
 - `profile`: the effort adjustment (time-of-day profile, coverage, annual index).

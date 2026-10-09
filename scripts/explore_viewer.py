@@ -131,8 +131,8 @@ def trend_panel(sp: dict, effort_annual: list) -> str:
     a = {k: arr([r[k] for r in t["annual"]]) for k in t["annual"][0]}
     start, last = t["first_year"], t["last_year"]
     raw = [r for r in sp["annual"] if r["year"] < start]
-    reports = {r["year"]: r["text"] for r in sp["reports"]}
-    hover = ["<br>".join(reports.get(int(y), "–")[i : i + 80] for i in range(0, 320, 80))
+    texts = {r["year"]: r["en"] for r in (sp["accounts"] or {}).get("years", [])}
+    hover = ["<br>".join(texts.get(int(y), "–")[i : i + 80] for i in range(0, 320, 80))
              for y in a["year"]]  # fmt: skip
     eff = [r for r in effort_annual if r["year"] <= last]
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.78, 0.22],
@@ -334,6 +334,37 @@ def records_panel(sp: dict) -> str:
 # --- pages ------------------------------------------------------------------------------------
 
 
+SECTION_NAMES = {
+    "passage": "Passage at the Défilé",
+    "evolution": "Changes in passage",
+    "particularites": "Distinctive observations",
+}
+
+
+def accounts_panel(sp: dict) -> str:
+    a = sp["accounts"]
+    if not a:
+        return "<p class='note'>No written account.</p>"
+    general = (
+        "".join(
+            f"<p><b>{SECTION_NAMES[k]}.</b> {html.escape(v['en'])}"
+            f"<br><span class='note'>{html.escape(v['fr'])}</span></p>"
+            for k, v in a["general"].items()
+        )
+        or "<p class='note'>No general account.</p>"
+    )
+    years = "".join(
+        f"<li><b>{r['year']}</b> — {html.escape(r['en'])}"
+        f"<br><span class='note'>{html.escape(r['fr'])}</span></li>"
+        for r in a["years"]
+    )
+    return (
+        f"<div class='panel'>{general}<details><summary>{len(a['years'])} year accounts"
+        f"</summary><ul class='rep'>{years}</ul></details>"
+        f"<p class='note'>[{a['method']}] English, French below each.</p></div>"
+    )
+
+
 def page(tx: dict, sp: dict, effort_annual: list) -> str:
     settings = "".join(
         f"<tr><td>{k}</td><td>{html.escape(json.dumps(sp['window'][k.split('_')[0]] if k.endswith('_window') else v['value']))}</td><td>{v['source']}</td>"
@@ -346,8 +377,6 @@ def page(tx: dict, sp: dict, effort_annual: list) -> str:
     )
     diag = sp["diagnostics"]
     flags = "".join(f"<span class='flag'>{f}</span>" for f in diag["flags"]) or "none"
-    reports = "".join(f"<li><b>{r['year']}</b> — {html.escape(r['text'])}</li>"
-                      for r in sorted(sp["reports"], key=lambda r: -r["year"]))  # fmt: skip
     body = f"""
 <h2>{html.escape(tx['english_name'])} <small style="font-weight:normal;color:#777">
 <i>{html.escape(str(tx['scientific_name']))}</i> · {html.escape(str(tx['french_name']))} ·
@@ -357,8 +386,7 @@ tier {tx['tier']} · from {tx['start_year']}</small></h2>
 <h3>Diagnostics</h3><div class="panel">flags: {flags}<br><span class="note">
 {html.escape(json.dumps({k: v for k, v in diag.items() if k != 'flags'}))}</span>
 <table><tr><th>setting</th><th>value</th><th>source</th><th>reason</th></tr>{settings}</table></div>
-<h3>What the reports say</h3><details><summary>{len(sp['reports'])} years</summary>
-<ul class="rep">{reports}</ul></details>
+<h3>Accounts</h3>{accounts_panel(sp)}
 <h3>Trend</h3>{trend_panel(sp, effort_annual) if sp['trend'] else "<p class='note'>No trend.</p>"}
 <h3>Phenology</h3>{season_panel(sp)}
 <h3>Visiting</h3>{chances_panel(sp)}{daytime_panel(sp)}

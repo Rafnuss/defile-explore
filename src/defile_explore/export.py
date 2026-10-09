@@ -2,7 +2,7 @@
 reads.
 
 Unlike `src/data/counts.py`, nothing here is a model choice: every value is a plain aggregation
-of the release tables (`count.csv`, `survey.csv`, `taxonomy.csv`, `report_text.csv`), following
+of the release tables (`count.csv`, `survey.csv`, `taxonomy.csv`), following
 the dataset README's daily-total rules (a count's own timing, else its survey's; the local
 Europe/Paris day). No count is moved, dropped, imputed or redistributed, so raw daily and annual
 totals reconcile with `count.csv` (`tests/test_explore.py`). Entries the release keeps at day
@@ -22,15 +22,13 @@ Files, written by `scripts/build_explore.py` (one `build_*` function each):
 - `species/<taxon_id>.json`: per day, the main-direction count with its qualifiers, the reverse
   and local counts, the share of birds timed to the hour, the day's coverage `c` and the
   effort-adjusted count; per local hour, the birds timed to it; per year, totals and the
-  effort-adjusted index; the time-of-day profile used; the species' report texts; and for
+  effort-adjusted index; the time-of-day profile used; and for
   full-tier species and combined series, `trend` (`defile_explore.trend.taxon_trend`): gap-filled
   annual totals with intervals, the smooth trend, the median passage date per year, the smooth
   season in the first and last year, and each year's season with and without its weather episodes.
   `defile_explore.pipeline.build_taxon` adds the blocks derived from the same data and fit
-  (`settings`, `links`, `key_numbers`, `season`, `daytime`, `age`, `sex`, `records`,
-  `diagnostics`); each of those modules documents its block.
-- `reports.json`: the report texts that are not about one species (site, monitoring, weather,
-  results, outreach).
+  (`settings`, `window`, `links`, `key_numbers`, `season`, `daytime`, `age`, `sex`, `records`,
+  `accounts`, `diagnostics`); each of those modules documents its block.
 
 Tables are columnar (`{"date": [...], "count": [...]}`) to keep the files small.
 """
@@ -47,7 +45,6 @@ from defile_explore.release import (
     MAIN_CATEGORY,
     METADATA_FILE,
     PRESENCE_ONLY,
-    REPORT_FILE,
     TIMEZONE,
     parse_counts,
     parse_surveys,
@@ -131,7 +128,6 @@ FRENCH_NAME_OVERRIDES = {"avibase-81B32602": "Corneille mantelée"}  # hoocro4, 
 TIMED_MAX_DURATION = pd.Timedelta(hours=1)
 
 COVERAGE_STATES = ("complete", "partial", "unknown", "none")
-REPORT_SPECIES = "species"  # report_text category whose key is a taxon_id
 
 HOURS = 24
 DECIMALS = 3  # hours and fractions
@@ -444,7 +440,7 @@ def release_counts(count: pd.DataFrame, surveys: pd.DataFrame, taxonomy: pd.Data
 
 
 def read_release(data_dir: str):
-    """`(surveys, counts, taxonomy, reports, metadata)` from `<data_dir>/count/dataset/`.
+    """`(surveys, counts, taxonomy, metadata)` from `<data_dir>/count/dataset/`.
 
     The release tables only: `entry_times.csv`, the model's extra, is not read. `counts` is
     `release_counts`.
@@ -454,10 +450,9 @@ def read_release(data_dir: str):
     taxonomy = pd.read_csv(os.path.join(folder, "taxonomy.csv"))
     count = pd.read_csv(os.path.join(folder, "count.csv"), low_memory=False)
     c = release_counts(count, surveys, taxonomy)
-    reports = pd.read_csv(os.path.join(folder, REPORT_FILE), encoding="utf-8-sig")
     path = os.path.join(folder, METADATA_FILE)
     metadata = json.load(open(path)) if os.path.exists(path) else {}
-    return surveys, c, taxonomy, reports, metadata
+    return surveys, c, taxonomy, metadata
 
 
 def partial_years(days: pd.DataFrame) -> list[int]:

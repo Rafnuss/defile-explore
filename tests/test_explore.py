@@ -210,7 +210,7 @@ def test_json_values():
 
 
 @pytest.mark.skipif(
-    not os.path.exists(os.path.join(DATA_DIR, C.DATASET_DIR, C.REPORT_FILE)),
+    not os.path.exists(os.path.join(DATA_DIR, C.DATASET_DIR, "count.csv")),
     reason="no release copied into data/count/dataset/",
 )
 def test_real_release_reconciles():

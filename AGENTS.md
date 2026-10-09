@@ -6,7 +6,7 @@ Guidance for AI coding agents working in this repo.
 
 Computes the statistics behind defileViz's Explore page from the defile-dataset release: a JSON
 file per taxon (daily counts, effort, time-of-day profile, GAM trend and gap-filled totals, ...)
-plus `taxa.json`, `effort.json`, `reports.json` and `manifest.json`. `README.md` has the layout
+plus `taxa.json`, `effort.json` and `manifest.json`. `README.md` has the layout
 and the commands.
 
 Principles:
@@ -34,9 +34,17 @@ defileViz (`src/services/explore.js`, `src/components/explore/`) reads `taxa.jso
 taxon's model window (`trend.window`), no longer always the default one. Renaming or reshaping a
 field breaks the page: change both repos together. The blocks added by `pipeline.build_taxon`
 (`season`, `daytime`, `age`, `sex`, `records`, `key_numbers`, `settings`, `window`, `links`,
-`diagnostics`) are not read by defileViz yet; `scripts/explore_viewer.py` draws all of them and is
+`accounts`, `diagnostics`) are not read by defileViz yet; `scripts/explore_viewer.py` draws all of them and is
 where a block is checked first. Each block names its `method` (`name@version`): bump the version
 when what the block means changes.
+
+## Written accounts
+
+`content/accounts/` is authored text, not generated: edit `species-sections.tsv` and
+`year-accounts.tsv` (both languages together), never write or translate prose automatically, and
+follow its README. The build reads only those two files (`accounts.py` checks them: unique keys,
+known sections and taxa, both languages); the report and paper extracts in the release are the
+editors' sources, not the build's.
 
 ## Per-taxon settings
 

@@ -20,7 +20,10 @@ override with its reason. What the first full build already shows:
 - Time of day uses every day timed to the hour, so for pigeons it pools the hour-by-hour
   notebooks of the late 1960s with recent days. Check that the two agree before pooling them.
 - `links`: Vogelwarte and Migration Atlas pages go in `overrides.yaml` by hand.
-- Combined series have no links and take the report paragraphs of their first member.
+- Combined series have no links and no written account of their own.
+- Written accounts: 35 full-tier taxa have none (most passerines, the unidentified groups, the
+  combined series); the season context of the reports (weather, monitoring, results) has no
+  account and is no longer exported (`reports.json` is gone).
 
 ## Phase 3: methods
 
@@ -50,5 +53,6 @@ intervals apart). Hard to read, and the keep rule passes too much for rare taxa.
 
 ## Publishing
 
-How the export reaches defileViz (copy into `public/data/explore/`, a release asset, or the GCE
+defileViz's `explore.js` still mentions `reports` in a comment; the species files now carry
+`accounts` (French and English) instead. How the export reaches defileViz (copy into `public/data/explore/`, a release asset, or the GCE
 host the forecasts use) is open, and so is the license of the exported data.

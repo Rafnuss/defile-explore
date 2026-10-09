@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from defile_explore import accounts as A
 from defile_explore import daytime as Y
 from defile_explore import demography as G
 from defile_explore import pipeline as L
@@ -243,3 +244,42 @@ def test_best_hours_are_the_fewest_holding_the_share():
     profile = np.zeros((PROFILE_DOY[1] - PROFILE_DOY[0] + 1, 24))
     profile[:, 10], profile[:, 11], profile[:, 12] = 0.5, 0.3, 0.2
     assert L.best_hours(profile, 250) == {"from": 10, "to": 12, "share": 0.8}
+
+
+# --- accounts ----------------------------------------------------------------------------------
+
+
+def write_accounts(tmp_path, sections: str, years: str) -> str:
+    (tmp_path / A.SECTIONS_FILE).write_text("key\tsection\ttext_fr\ttext_en\n" + sections)
+    (tmp_path / A.YEARS_FILE).write_text("year\tkey\ttext_fr\ttext_en\n" + years)
+    return str(tmp_path)
+
+
+def test_the_authored_accounts_load_and_check():
+    a = A.load_accounts()
+    assert len(a["sections"]) and len(a["years"])
+    assert set(a["sections"]["section"]) <= set(A.SECTIONS)
+
+
+def test_an_account_missing_one_language_is_refused(tmp_path):
+    folder = write_accounts(tmp_path, "t1\tpassage\tTexte\t \n", "")
+    with pytest.raises(ValueError, match="one language"):
+        A.load_accounts(folder)
+
+
+def test_an_unknown_section_or_taxon_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="unknown section"):
+        A.load_accounts(write_accounts(tmp_path, "t1\thabitat\tT\tT\n", ""))
+    folder = write_accounts(tmp_path, "", "2020\tt9\tT\tT\n")
+    with pytest.raises(ValueError, match="unknown taxa"):
+        A.load_accounts(folder, taxon_ids=["t1"])
+
+
+def test_accounts_block_orders_sections_and_years(tmp_path):
+    sections = "t1\tparticularites\tP\tP\nt1\tpassage\tA\tA\n"
+    years = "2020\tt1\tx\tx\n2024\tt1\ty\ty\n2026\tt1\tz\tz\n2021\tt2\tw\tw\n"
+    a = A.load_accounts(write_accounts(tmp_path, sections, years))
+    b = A.accounts_block(A.taxon_rows(a, "t1"), last_year=2025)
+    assert list(b["general"]) == ["passage", "particularites"]
+    assert [r["year"] for r in b["years"]] == [2024, 2020]  # newest first, none after 2025
+    assert A.accounts_block(A.taxon_rows(a, "t3"), 2025) is None

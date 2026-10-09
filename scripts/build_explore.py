@@ -2,9 +2,9 @@
 """Builds the Explore export for defileViz from the defile-dataset release tables.
 
 Reads the release in `data/count/dataset/` (copied there with `--dataset <dir>`) and writes
-`data/explore/`: `manifest.json`, `taxa.json`, `effort.json`, `reports.json` and
-`species/<taxon_id>.json` (`defile_explore.pipeline.build_taxon`), with French names from the
-eBird taxonomy (downloaded once, no key). The shared stage (~80 s of time-of-day profiles) and
+`data/explore/`: `manifest.json`, `taxa.json`, `effort.json` and `species/<taxon_id>.json`
+(`defile_explore.pipeline.build_taxon`), with French names from the eBird taxonomy (downloaded
+once, no key) and the written accounts from `content/accounts/`. The shared stage (~80 s of time-of-day profiles) and
 each taxon's trend fit are cached in `data/cache/`, so a rebuild after a change to one block
 refits nothing. Copy `data/explore/` to defileViz's `public/data/explore/` to publish it.
 
@@ -25,6 +25,7 @@ import urllib.request
 
 import pandas as pd
 
+from defile_explore import accounts as A
 from defile_explore import export as E
 from defile_explore import pipeline as L
 from defile_explore import release as R
@@ -90,8 +91,9 @@ def main(argv=None) -> int:
     print(f"Shared stage ready in {time.time() - t0:.0f} s (cache key {shared.key})")
     taxa, days, effort = shared.taxa, shared.days, shared.effort
     overrides = X.load_overrides()
+    accounts = A.load_accounts(taxon_ids=taxa["taxon_id"])
     ids = select(taxa, args.taxa)
-    jobs = list(L.taxon_jobs(shared, ids, overrides, args.data_dir, not args.no_cache))
+    jobs = list(L.taxon_jobs(shared, ids, overrides, accounts, args.data_dir, not args.no_cache))
     if args.skip_trend:
         for j in jobs:
             j["overrides"] = j["overrides"] | {
@@ -109,16 +111,13 @@ def main(argv=None) -> int:
         sizes = {
             "manifest.json": write(
                 os.path.join(args.out, "manifest.json"),
-                E.manifest(shared.metadata, days, effort, git_sha),
+                E.manifest(shared.metadata, days, effort, git_sha)
+                | {"accounts_sha256": A.fingerprint()},
             ),
             "taxa.json": write(os.path.join(args.out, "taxa.json"), E.records(taxa)),
             "effort.json": write(
                 os.path.join(args.out, "effort.json"),
                 {"days": E.columns(effort), "annual": E.records(E.annual_effort(effort))},
-            ),
-            "reports.json": write(
-                os.path.join(args.out, "reports.json"),
-                E.records(shared.reports[shared.reports["category"] != E.REPORT_SPECIES]),
             ),
         }
     species_bytes, n_trend, flags = 0, 0, {}

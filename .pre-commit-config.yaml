@@ -66,5 +66,6 @@ repos:
     hooks:
       - id: codespell
         args:
-          - --skip=logs/**,data/**,*.ipynb
+          # Bilingual editorial prose and source-name snapshots are checked against their sources.
+          - --skip=logs/**,data/**,content/accounts/**,*.ipynb
           - --ignore-words-list=te # pygam tensor-product term

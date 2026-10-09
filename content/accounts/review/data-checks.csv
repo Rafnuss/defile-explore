@@ -1,0 +1,616 @@
+year,key,species,dataset_total,published_total,difference,rank_since_1993,rank_years,scope
+2004,avibase-ED5A7E8F,Bondrée apivore,5974,6136,-162,2,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2004,avibase-F558C7F9,Busard Saint-Martin,28,30,-2,12,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2004,avibase-3C0C325D,Buse variable,8722,8927,-205,11,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2004,avibase-28825494,Cigogne blanche,409,425,-16,1,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2004,avibase-E2817DAE,Cigogne noire,98,122,-24,1,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2004,avibase-49D9148A,Grande Aigrette,100,124,-24,2,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2004,avibase-30FEC6BE,Hirondelle de fenêtre,1,,,5,6,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2004,avibase-58C502EA,Hirondelle rustique,152,,,2,8,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2004,avibase-4E6EF3F9,Martinet noir,125,,,10,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2004,avibase-06D9A2C8,Milan noir,3574,3814,-240,10,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2004,avibase-451D6FC8,Milan royal,2836,2852,-16,1,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2004,avibase-E16B2C03,Pinson du Nord,15,,,3,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2004,avibase-DB376A66,Épervier d'Europe,765,763,2,9,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2005,avibase-1327AC55,Balbuzard pêcheur,56,57,-1,12,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2005,avibase-ED5A7E8F,Bondrée apivore,9883,10016,-133,1,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2005,avibase-3C0C325D,Buse variable,11984,13967,-1983,4,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2005,avibase-28825494,Cigogne blanche,490,501,-11,1,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2005,avibase-49D9148A,Grande Aigrette,174,189,-15,1,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2005,avibase-06D9A2C8,Milan noir,2836,2926,-90,12,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2005,avibase-451D6FC8,Milan royal,3999,4479,-480,1,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2006,avibase-5F8E7CA8,Aigle royal,8,9,-1,1,9,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2006,avibase-ED5A7E8F,Bondrée apivore,7115,8308,-1193,2,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2006,avibase-F558C7F9,Busard Saint-Martin,24,22,2,13,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2006,avibase-63B6412E,Busard cendré,29,32,-3,1,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2006,avibase-3C0C325D,Buse variable,11582,12184,-602,5,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2006,avibase-28825494,Cigogne blanche,568,573,-5,1,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2006,avibase-06D9A2C8,Milan noir,4381,4708,-327,7,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2006,avibase-451D6FC8,Milan royal,2669,2916,-247,3,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2006,avibase-0C24147B,Rapace indéterminé,190,,,1,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2007,avibase-5F8E7CA8,Aigle royal,7,7,0,2,10,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2007,avibase-ED5A7E8F,Bondrée apivore,4881,4668,213,7,15,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2007,avibase-3C0C325D,Buse variable,7496,7991,-495,14,15,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2007,avibase-E2817DAE,Cigogne noire,132,138,-6,1,15,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2007,avibase-4E6EF3F9,Martinet noir,3486,,,5,15,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2007,avibase-FA1CAD29,Martinet à ventre blanc,2,,,13,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-C2565B65,Aigle pomarin,1,1,0,1,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-5F8E7CA8,Aigle royal,2,2,0,6,11,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-F2858F9F,Aigrette garzette,1,1,0,1,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-ED2AC04E,Alouette des champs,7123,7123,0,4,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-742EC2F1,Alouette lulu,1272,1272,0,2,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-95DD1855,Autour des palombes,5,5,0,5,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-1327AC55,Balbuzard pêcheur,72,72,0,11,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-ED5A7E8F,Bondrée apivore,7346,7346,0,2,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-F558C7F9,Busard Saint-Martin,48,48,0,7,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-63B6412E,Busard cendré,19,19,0,6,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-E2A19474,Busard des roseaux,316,316,0,13,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-3C0C325D,Buse variable,18275,18275,0,2,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-85625D75,Canard colvert,2,2,0,3,4,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-D4C32F8E,Choucas des tours,461,461,0,9,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-28825494,Cigogne blanche,960,960,0,1,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-E2817DAE,Cigogne noire,93,93,0,3,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-8372FFBA,Circaète Jean-le-Blanc,7,7,0,1,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-AEE2063F,Cisticole des joncs,1,1,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-1078FFEA,Corbeau freux,1260,1260,0,13,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-FD45C1D7,Corneille noire,25,25,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-082F3A63,Courlis corlieu,2,2,0,6,9,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-2DAB45B8,Faucon crécerelle,278,278,0,5,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-E91E287A,Faucon hobereau,35,35,0,12,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-47E58408,Faucon pèlerin,7,7,0,1,7,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-F3DA111C,Faucon émerillon,46,46,0,7,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-68EA281A,Garrot à oeil d’or,1,1,0,2,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-2D52E3A5,Goéland brun,1,1,0,6,11,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-E074D706,Goéland leucophée,228,262,-34,16,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-49D9148A,Grande Aigrette,145,145,0,2,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-99B8841E,Grue cendrée,49,49,0,3,15,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-66AA3934,Guêpier d'Europe,3,3,0,6,8,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-407E2CA8,Harle bièvre,26,26,0,1,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-94A1C447,Hirondelle de rivage,106,106,0,1,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-58C502EA,Hirondelle rustique,9463,9463,0,1,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-6429024D,Héron cendré,976,976,0,2,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-070E73F9,Labbe indéterminé,,1,,,0,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-4E6EF3F9,Martinet noir,7209,7209,0,4,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-FA1CAD29,Martinet à ventre blanc,6,6,0,11,15,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-06D9A2C8,Milan noir,7066,7066,0,1,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-451D6FC8,Milan royal,5580,5580,0,1,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-052BFA8A,Mouette mélanocéphale,2,2,0,2,9,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-FB02DD96,Mouette rieuse,482,482,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-EDB4BBA6,Pic noir,1,1,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-68E4C0D1,Pigeon colombin,1403,1403,0,11,15,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-760F307A,Pigeon ramier,24945,24945,0,13,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-25A20BA6,Pluvier doré,1,1,0,1,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-5A3D91D3,Pygargue à queue blanche,1,1,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-8BAFB01E,Pélican blanc,1,1,0,1,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-A0A584C1,Spatule blanche,2,2,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-BC06BC0D,Sterne caspienne,2,2,0,1,4,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-5EAB32D3,Tadorne de Belon,,1,,,4,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-89C42590,Tichodrome échelette,1,1,0,2,7,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-5D1987CE,Vautour fauve,1,1,0,1,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2008,avibase-DB376A66,Épervier d'Europe,1503,1503,0,2,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-4B8CC285,Aigle botté,1,1,0,7,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-BAC4CA22,Aigle criard,1,1,0,4,8,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-F2858F9F,Aigrette garzette,1,1,0,1,4,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-ED2AC04E,Alouette des champs,2265,2265,0,15,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-742EC2F1,Alouette lulu,402,402,0,8,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-95DD1855,Autour des palombes,4,4,0,6,15,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-1327AC55,Balbuzard pêcheur,57,57,0,15,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-6BB94D7E,Bihoreau gris,,,,,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-ED5A7E8F,Bondrée apivore,4995,4995,0,8,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-F558C7F9,Busard Saint-Martin,18,18,0,17,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-63B6412E,Busard cendré,5,5,0,17,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-E2A19474,Busard des roseaux,328,328,0,13,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-22647E26,Busard pâle,1,1,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-3C0C325D,Buse variable,10527,10527,0,9,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-56CCA717,Canard pilet,15,15,0,7,9,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-D4C32F8E,Choucas des tours,630,630,0,8,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-28825494,Cigogne blanche,1080,1080,0,1,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-E2817DAE,Cigogne noire,133,133,0,1,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-8372FFBA,Circaète Jean-le-Blanc,4,4,0,3,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-1078FFEA,Corbeau freux,1086,1086,0,14,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-082F3A63,Courlis corlieu,17,17,0,1,10,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-2DAB45B8,Faucon crécerelle,251,251,0,9,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-E91E287A,Faucon hobereau,45,45,0,10,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-997A9437,Faucon kobez,1,1,0,2,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-47E58408,Faucon pèlerin,8,8,0,1,8,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-F3DA111C,Faucon émerillon,37,37,0,9,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-E074D706,Goéland leucophée,184,182,2,17,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-3DF5C587,Grand Cormoran,3216,3215,1,13,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-49D9148A,Grande Aigrette,82,82,0,7,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-99B8841E,Grue cendrée,62,62,0,2,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-407E2CA8,Harle bièvre,15,15,0,2,15,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-30FEC6BE,Hirondelle de fenêtre,2505,2505,0,2,10,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-94A1C447,Hirondelle de rivage,90,90,0,3,6,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-6F2AF9D0,Hirondelle de rochers,21,21,0,1,6,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-58C502EA,Hirondelle rustique,12270,12270,0,1,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-ED663165,Huîtrier pie,5,5,0,1,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-6429024D,Héron cendré,352,352,0,13,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-1D446440,Labbe à longue queue,1,1,0,1,4,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-24698199,Macreuse noire,2,2,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-4E6EF3F9,Martinet noir,8038,8038,0,3,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-FA1CAD29,Martinet à ventre blanc,1,1,0,16,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-06D9A2C8,Milan noir,6366,6365,1,2,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-451D6FC8,Milan royal,4565,4565,0,2,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-052BFA8A,Mouette mélanocéphale,1,1,0,5,10,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-FB02DD96,Mouette rieuse,87,87,0,2,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-4AED44E8,Oie cendrée,8,8,0,5,10,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-68E4C0D1,Pigeon colombin,1339,1339,0,12,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-760F307A,Pigeon ramier,16362,16362,0,17,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-5D1987CE,Vautour fauve,1,1,0,1,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2009,avibase-DB376A66,Épervier d'Europe,1028,1028,0,4,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-4B8CC285,Aigle botté,1,1,0,7,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-BAC4CA22,Aigle criard,2,2,0,1,9,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-C2565B65,Aigle pomarin,1,1,0,1,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-F2858F9F,Aigrette garzette,1,1,0,1,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-ED2AC04E,Alouette des champs,3637,3637,0,9,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-742EC2F1,Alouette lulu,392,392,0,9,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-95DD1855,Autour des palombes,2,2,0,11,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-1327AC55,Balbuzard pêcheur,98,98,0,7,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-ED5A7E8F,Bondrée apivore,5388,5388,0,7,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-F558C7F9,Busard Saint-Martin,24,24,0,15,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-63B6412E,Busard cendré,14,14,0,12,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-E2A19474,Busard des roseaux,605,605,0,6,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-3C0C325D,Buse variable,12407,12407,0,5,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-C235A4D7,Canard chipeau,6,6,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-D4C32F8E,Choucas des tours,624,624,0,9,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-28825494,Cigogne blanche,992,992,0,2,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-E2817DAE,Cigogne noire,133,133,0,1,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-8372FFBA,Circaète Jean-le-Blanc,4,4,0,3,15,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-1078FFEA,Corbeau freux,1180,1180,0,14,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-082F3A63,Courlis corlieu,68,68,0,1,11,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-2DAB45B8,Faucon crécerelle,313,313,0,4,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-E91E287A,Faucon hobereau,59,59,0,5,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-997A9437,Faucon kobez,,,,,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-47E58408,Faucon pèlerin,4,4,0,3,9,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-F3DA111C,Faucon émerillon,29,29,0,17,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-D8D10F2C,Geai des chênes,474,474,0,2,6,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-E074D706,Goéland leucophée,133,132,1,18,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-3DF5C587,Grand Cormoran,4839,4838,1,6,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-49D9148A,Grande Aigrette,32,32,0,9,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-99B8841E,Grue cendrée,70,70,0,1,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-407E2CA8,Harle bièvre,15,15,0,2,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-30FEC6BE,Hirondelle de fenêtre,7300,7300,0,2,11,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-6F2AF9D0,Hirondelle de rochers,7,7,0,3,7,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-6429024D,Héron cendré,737,737,0,5,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-4E6EF3F9,Martinet noir,10254,10254,0,1,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-FA1CAD29,Martinet à ventre blanc,20,20,0,3,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-06D9A2C8,Milan noir,6830,6829,1,2,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-451D6FC8,Milan royal,4877,4877,0,2,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-052BFA8A,Mouette mélanocéphale,2,2,0,2,11,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-FB02DD96,Mouette rieuse,1072,1072,0,1,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-4AED44E8,Oie cendrée,8,8,0,5,11,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-68E4C0D1,Pigeon colombin,3111,3111,0,2,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-760F307A,Pigeon ramier,122624,122624,0,2,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-25A20BA6,Pluvier doré,8,8,0,1,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2010,avibase-DB376A66,Épervier d'Europe,1632,1632,0,2,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-ED2AC04E,Alouette des champs,6338,6338,0,6,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-742EC2F1,Alouette lulu,427,427,0,8,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-95DD1855,Autour des palombes,2,2,0,11,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-1327AC55,Balbuzard pêcheur,138,138,0,3,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-ED5A7E8F,Bondrée apivore,5778,5778,0,7,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-F558C7F9,Busard Saint-Martin,42,42,0,9,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-63B6412E,Busard cendré,11,11,0,14,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-E2A19474,Busard des roseaux,729,729,0,5,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-90B13ACF,Buse pattue,1,1,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-3C0C325D,Buse variable,16143,16143,0,4,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-56CCA717,Canard pilet,65,65,0,1,10,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-D4C32F8E,Choucas des tours,80,80,0,18,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-28825494,Cigogne blanche,1641,1641,0,1,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-E2817DAE,Cigogne noire,189,189,0,1,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-8372FFBA,Circaète Jean-le-Blanc,4,4,0,3,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-1078FFEA,Corbeau freux,657,657,0,18,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-2DAB45B8,Faucon crécerelle,827,827,0,1,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-E91E287A,Faucon hobereau,74,74,0,3,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-47E58408,Faucon pèlerin,8,8,0,1,10,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-F3DA111C,Faucon émerillon,79,79,0,1,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-A96692E0,Fuligule milouin,10,10,0,3,4,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-3DF5C587,Grand Cormoran,7728,7728,0,1,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-49D9148A,Grande Aigrette,46,46,0,9,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-99B8841E,Grue cendrée,155,155,0,1,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-407E2CA8,Harle bièvre,33,33,0,1,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-30FEC6BE,Hirondelle de fenêtre,3967,3967,0,3,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-94A1C447,Hirondelle de rivage,25,25,0,6,8,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-6429024D,Héron cendré,638,638,0,10,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-06D9A2C8,Milan noir,11413,11413,0,1,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-451D6FC8,Milan royal,8823,8823,0,1,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-4AED44E8,Oie cendrée,3,3,0,10,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-68E4C0D1,Pigeon colombin,2880,2880,0,4,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-760F307A,Pigeon ramier,28725,28725,0,14,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2011,avibase-DB376A66,Épervier d'Europe,1861,1861,0,1,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-ED2AC04E,Alouette des champs,7775,7590,185,3,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-742EC2F1,Alouette lulu,528,528,0,8,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-95DD1855,Autour des palombes,6,5,1,3,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-1327AC55,Balbuzard pêcheur,86,86,0,11,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-ED5A7E8F,Bondrée apivore,3489,3489,0,16,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-F558C7F9,Busard Saint-Martin,61,46,15,4,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-63B6412E,Busard cendré,7,7,0,17,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-E2A19474,Busard des roseaux,678,678,0,6,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-3C0C325D,Buse variable,56262,34722,21540,1,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-85625D75,Canard colvert,2,2,0,3,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-56CCA717,Canard pilet,1,1,0,11,11,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-D4C32F8E,Choucas des tours,529,529,0,11,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-28825494,Cigogne blanche,1834,1796,38,1,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-E2817DAE,Cigogne noire,167,167,0,2,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-8372FFBA,Circaète Jean-le-Blanc,7,7,0,1,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-1078FFEA,Corbeau freux,1945,1945,0,11,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-3BB5CBA6,Courlis cendré,21,7,14,3,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-082F3A63,Courlis corlieu,1,1,0,9,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-2DAB45B8,Faucon crécerelle,1568,1531,37,1,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-E91E287A,Faucon hobereau,68,68,0,4,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-47E58408,Faucon pèlerin,11,7,4,1,11,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-F3DA111C,Faucon émerillon,28,28,0,20,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-A96692E0,Fuligule milouin,9,9,0,4,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-D8D10F2C,Geai des chênes,1079,1079,0,2,7,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-3DF5C587,Grand Cormoran,13064,12886,178,1,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-49D9148A,Grande Aigrette,208,205,3,1,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-99B8841E,Grue cendrée,333,209,124,1,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-407E2CA8,Harle bièvre,41,38,3,1,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-8F123A11,Hibou des marais,1,1,0,2,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-30FEC6BE,Hirondelle de fenêtre,2509,2509,0,4,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-94A1C447,Hirondelle de rivage,40,40,0,5,9,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-6F2AF9D0,Hirondelle de rochers,5,5,0,4,8,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-58C502EA,Hirondelle rustique,9671,9671,0,4,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-6429024D,Héron cendré,982,979,3,2,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-39086887,Labbe parasite,1,1,0,1,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-4E6EF3F9,Martinet noir,8242,8242,0,5,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-FA1CAD29,Martinet à ventre blanc,16,16,0,5,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-06D9A2C8,Milan noir,8303,8303,0,2,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-451D6FC8,Milan royal,12376,11607,769,1,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-052BFA8A,Mouette mélanocéphale,2,2,0,2,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-4AED44E8,Oie cendrée,51,4,47,2,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-A0148BE3,Oie indéterminée,9,9,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-68E4C0D1,Pigeon colombin,3668,3668,0,2,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-760F307A,Pigeon ramier,73982,73982,0,6,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-6364E4A5,Pinson des arbres,457600,457597,3,1,7,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-5D1987CE,Vautour fauve,2,2,0,1,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2012,avibase-DB376A66,Épervier d'Europe,2432,2378,54,1,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-BAC4CA22,Aigle criard,,1,,,10,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-A635F565,Aigle des steppes,1,1,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-C2565B65,Aigle pomarin,1,1,0,1,4,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-5F8E7CA8,Aigle royal,1,1,0,9,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-ED2AC04E,Alouette des champs,5218,5218,0,10,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-742EC2F1,Alouette lulu,1944,1944,0,1,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-95DD1855,Autour des palombes,11,11,0,2,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-1327AC55,Balbuzard pêcheur,163,163,0,1,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-ED5A7E8F,Bondrée apivore,8164,8164,0,2,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-F558C7F9,Busard Saint-Martin,37,37,0,13,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-63B6412E,Busard cendré,17,17,0,8,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-E2A19474,Busard des roseaux,761,761,0,5,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-22647E26,Busard pâle,1,1,0,1,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-3C0C325D,Buse variable,28414,28010,404,2,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-D4C32F8E,Choucas des tours,291,291,0,17,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-28825494,Cigogne blanche,1118,1116,2,3,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-E2817DAE,Cigogne noire,107,107,0,6,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-8372FFBA,Circaète Jean-le-Blanc,3,3,0,9,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-1078FFEA,Corbeau freux,780,780,0,18,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-2DAB45B8,Faucon crécerelle,819,819,0,3,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-E91E287A,Faucon hobereau,76,76,0,3,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-47E58408,Faucon pèlerin,11,11,0,1,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-F3DA111C,Faucon émerillon,51,51,0,6,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-3DF5C587,Grand Cormoran,11719,11708,11,2,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-49D9148A,Grande Aigrette,350,350,0,1,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-99B8841E,Grue cendrée,1042,1021,21,1,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-66AA3934,Guêpier d'Europe,211,211,0,1,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-94A1C447,Hirondelle de rivage,61,61,0,5,10,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-6429024D,Héron cendré,635,635,0,12,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-4E6EF3F9,Martinet noir,40599,40599,0,1,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-06D9A2C8,Milan noir,7721,7721,0,3,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-451D6FC8,Milan royal,10501,10444,57,2,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-68E4C0D1,Pigeon colombin,5102,5102,0,1,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-760F307A,Pigeon ramier,61066,61066,0,11,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-5D1987CE,Vautour fauve,3,3,0,1,6,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-DB376A66,Épervier d'Europe,2565,2563,2,1,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2013,avibase-94A44032,Étourneau sansonnet,91635,91635,0,1,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-BAC4CA22,Aigle criard,1,1,0,5,11,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-C2565B65,Aigle pomarin,3,3,0,1,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-95DD1855,Autour des palombes,2,2,0,13,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-1327AC55,Balbuzard pêcheur,159,157,2,2,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-ED5A7E8F,Bondrée apivore,10282,10279,3,1,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-F558C7F9,Busard Saint-Martin,19,20,-1,21,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-63B6412E,Busard cendré,33,33,0,1,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-E2A19474,Busard des roseaux,678,683,-5,7,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-22647E26,Busard pâle,1,1,0,1,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-3C0C325D,Buse variable,13886,13547,339,7,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-28825494,Cigogne blanche,1916,1917,-1,1,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-E2817DAE,Cigogne noire,173,181,-8,2,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-8372FFBA,Circaète Jean-le-Blanc,2,2,0,10,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-2DAB45B8,Faucon crécerelle,644,648,-4,4,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-E91E287A,Faucon hobereau,79,81,-2,2,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-47E58408,Faucon pèlerin,3,1,2,7,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-F3DA111C,Faucon émerillon,50,53,-3,7,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-3DF5C587,Grand Cormoran,10864,10864,0,3,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-49D9148A,Grande Aigrette,217,217,0,2,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-6429024D,Héron cendré,1042,1027,15,2,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-06D9A2C8,Milan noir,15069,14923,146,1,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-451D6FC8,Milan royal,10501,10120,381,2,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-68E4C0D1,Pigeon colombin,2805,3550,-745,7,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-760F307A,Pigeon ramier,34707,34474,233,16,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-5D1987CE,Vautour fauve,1,1,0,3,7,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-97C47F3E,Élanion blanc,1,1,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-DB376A66,Épervier d'Europe,1542,1525,17,6,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2014,avibase-94A44032,Étourneau sansonnet,72154,72232,-78,2,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-BAC4CA22,Aigle criard,2,,,1,12,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-C2565B65,Aigle pomarin,2,,,2,6,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-95DD1855,Autour des palombes,3,,,13,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-1327AC55,Balbuzard pêcheur,130,,,6,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-ED5A7E8F,Bondrée apivore,3392,,,19,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-F558C7F9,Busard Saint-Martin,29,,,17,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-63B6412E,Busard cendré,15,,,13,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-E2A19474,Busard des roseaux,815,,,4,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-3C0C325D,Buse variable,16503,,,5,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-28825494,Cigogne blanche,1511,,,4,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-E2817DAE,Cigogne noire,164,,,4,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-8372FFBA,Circaète Jean-le-Blanc,2,,,10,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-2DAB45B8,Faucon crécerelle,392,,,5,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-E91E287A,Faucon hobereau,85,,,2,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-47E58408,Faucon pèlerin,6,,,6,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-F3DA111C,Faucon émerillon,16,,,23,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-3DF5C587,Grand Cormoran,6676,,,5,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-06D9A2C8,Milan noir,7332,,,5,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-451D6FC8,Milan royal,10383,,,4,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-5D1987CE,Vautour fauve,2,,,2,8,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2015,avibase-DB376A66,Épervier d'Europe,1604,,,6,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-1327AC55,Balbuzard pêcheur,80,80,0,15,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-ED5A7E8F,Bondrée apivore,1391,1391,0,24,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-F558C7F9,Busard Saint-Martin,30,25,5,16,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-E2A19474,Busard des roseaux,328,328,0,19,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-3C0C325D,Buse variable,19365,17930,1435,3,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-28825494,Cigogne blanche,1020,1019,1,7,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-E2817DAE,Cigogne noire,121,121,0,8,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-2DAB45B8,Faucon crécerelle,365,365,0,7,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-E91E287A,Faucon hobereau,21,21,0,23,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-47E58408,Faucon pèlerin,4,4,0,7,15,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-F3DA111C,Faucon émerillon,20,20,0,23,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-3DF5C587,Grand Cormoran,5699,5615,84,7,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-06D9A2C8,Milan noir,7283,7283,0,6,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-451D6FC8,Milan royal,11469,10321,1148,2,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-68E4C0D1,Pigeon colombin,1851,1851,0,14,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-760F307A,Pigeon ramier,24159,24159,0,20,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-97C47F3E,Élanion blanc,1,1,0,1,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-DB376A66,Épervier d'Europe,1274,1272,2,9,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2016,avibase-94A44032,Étourneau sansonnet,28304,28279,25,6,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-BAC4CA22,Aigle criard,1,1,0,6,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-2A16982E,Aigle pomarin ou criard,1,1,0,1,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-95DD1855,Autour des palombes,1,1,0,19,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-1327AC55,Balbuzard pêcheur,162,162,0,2,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-ED5A7E8F,Bondrée apivore,3392,3392,0,19,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-F558C7F9,Busard Saint-Martin,4,4,0,25,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-63B6412E,Busard cendré,12,12,0,17,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-E2A19474,Busard des roseaux,707,707,0,8,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-22647E26,Busard pâle,5,5,0,1,4,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-3C0C325D,Buse variable,17549,17501,48,6,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-28825494,Cigogne blanche,2947,2947,0,1,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-E2817DAE,Cigogne noire,201,201,0,1,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-8372FFBA,Circaète Jean-le-Blanc,9,9,0,1,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-2DAB45B8,Faucon crécerelle,1034,1034,0,2,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-E91E287A,Faucon hobereau,49,49,0,15,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-997A9437,Faucon kobez,1,1,0,2,4,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-47E58408,Faucon pèlerin,4,4,0,7,16,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-F3DA111C,Faucon émerillon,16,16,0,24,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-3DF5C587,Grand Cormoran,18605,18605,0,1,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-8F123A11,Hibou des marais,1,1,0,2,4,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-D49A669A,Hybride Aigle criard x pomarin,1,1,0,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-06D9A2C8,Milan noir,14081,14076,5,2,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-451D6FC8,Milan royal,10906,10895,11,3,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-68E4C0D1,Pigeon colombin,3514,3514,0,4,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-760F307A,Pigeon ramier,89948,89948,0,5,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-5A3D91D3,Pygargue à queue blanche,1,1,0,1,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-97C47F3E,Élanion blanc,2,2,0,1,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2017,avibase-DB376A66,Épervier d'Europe,1305,1320,-15,9,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-C2565B65,Aigle pomarin,1,1,0,3,8,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-1327AC55,Balbuzard pêcheur,75,75,0,19,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-ED5A7E8F,Bondrée apivore,5172,5172,0,11,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-F558C7F9,Busard Saint-Martin,17,17,0,25,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-63B6412E,Busard cendré,8,8,0,21,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-E2A19474,Busard des roseaux,396,396,0,17,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-90B13ACF,Buse pattue,1,1,0,1,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-3C0C325D,Buse variable,11063,11063,0,16,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-28825494,Cigogne blanche,1937,1937,0,2,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-E2817DAE,Cigogne noire,121,121,0,9,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-8372FFBA,Circaète Jean-le-Blanc,2,2,0,11,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-2DAB45B8,Faucon crécerelle,264,264,0,14,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-E91E287A,Faucon hobereau,62,62,0,10,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-F3DA111C,Faucon émerillon,26,26,0,23,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-3DF5C587,Grand Cormoran,11959,11959,0,3,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-06D9A2C8,Milan noir,9386,9386,0,4,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-451D6FC8,Milan royal,8954,8954,0,7,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-68E4C0D1,Pigeon colombin,2880,2880,0,7,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-760F307A,Pigeon ramier,59171,59171,0,13,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-5A3D91D3,Pygargue à queue blanche,,1,,,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2018,avibase-DB376A66,Épervier d'Europe,1094,1094,0,11,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-4B8CC285,Aigle botté,1,1,0,7,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-C2565B65,Aigle pomarin,,1,,,8,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-5F8E7CA8,Aigle royal,1,1,0,9,15,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-95DD1855,Autour des palombes,3,1,2,14,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-1327AC55,Balbuzard pêcheur,90,90,0,13,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-ED5A7E8F,Bondrée apivore,1676,1677,-1,25,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-F558C7F9,Busard Saint-Martin,47,46,1,9,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-63B6412E,Busard cendré,5,5,0,26,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-E2A19474,Busard des roseaux,462,466,-4,15,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-22647E26,Busard pâle,1,1,0,2,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-3C0C325D,Buse variable,13250,12097,1153,12,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-28825494,Cigogne blanche,3353,3353,0,1,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-E2817DAE,Cigogne noire,115,115,0,11,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-8372FFBA,Circaète Jean-le-Blanc,6,6,0,4,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-2DAB45B8,Faucon crécerelle,584,585,-1,6,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-E91E287A,Faucon hobereau,9,9,0,27,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-47E58408,Faucon pèlerin,8,8,0,3,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-F3DA111C,Faucon émerillon,33,33,0,16,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-3DF5C587,Grand Cormoran,19893,19740,153,1,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-49D9148A,Grande Aigrette,466,467,-1,1,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-99B8841E,Grue cendrée,1301,1066,235,2,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-66AA3934,Guêpier d'Europe,820,822,-2,1,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-8F123A11,Hibou des marais,1,1,0,2,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-6429024D,Héron cendré,1570,1574,-4,2,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-06D9A2C8,Milan noir,8480,8481,-1,5,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-451D6FC8,Milan royal,12610,10839,1771,1,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-68E4C0D1,Pigeon colombin,2047,2057,-10,15,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-F837F893,Pigeon indéterminé,18543,18543,0,3,6,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-760F307A,Pigeon ramier,19811,19872,-61,24,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-5D1987CE,Vautour fauve,7,7,0,1,9,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2019,avibase-DB376A66,Épervier d'Europe,1083,1081,2,12,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-7E9CC505,Aigle indéterminé (Aquila),1,1,0,1,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-2A16982E,Aigle pomarin ou criard,1,1,0,1,4,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-95DD1855,Autour des palombes,,,,,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-1327AC55,Balbuzard pêcheur,93,93,0,13,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-ED5A7E8F,Bondrée apivore,5047,4984,63,12,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-F558C7F9,Busard Saint-Martin,17,17,0,26,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-63B6412E,Busard cendré,13,13,0,16,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-E2A19474,Busard des roseaux,328,329,-1,22,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-22647E26,Busard pâle,2,2,0,2,6,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-AEEF72BC,Busard pâle / cendré,,,,,0,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-3C0C325D,Buse variable,8465,8377,88,26,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-28825494,Cigogne blanche,3472,3472,0,1,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-E2817DAE,Cigogne noire,82,82,0,17,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-8372FFBA,Circaète Jean-le-Blanc,4,4,0,6,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-2DAB45B8,Faucon crécerelle,453,413,40,7,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-E91E287A,Faucon hobereau,19,19,0,27,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-47E58408,Faucon pèlerin,4,4,0,8,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-F3DA111C,Faucon émerillon,24,24,0,25,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-3DF5C587,Grand Cormoran,10920,10920,0,6,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-49D9148A,Grande Aigrette,190,188,2,6,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-99B8841E,Grue cendrée,380,380,0,6,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-66AA3934,Guêpier d'Europe,643,643,0,2,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-6429024D,Héron cendré,587,590,-3,20,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-06D9A2C8,Milan noir,6641,6596,45,12,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-451D6FC8,Milan royal,11993,11862,131,3,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-68E4C0D1,Pigeon colombin,2584,2575,9,10,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-760F307A,Pigeon ramier,23158,23136,22,24,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-97C47F3E,Élanion blanc,2,2,0,1,4,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2020,avibase-DB376A66,Épervier d'Europe,581,578,3,26,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-95DD1855,Autour des palombes,,,,,24,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-1327AC55,Balbuzard pêcheur,97,97,0,13,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-ED5A7E8F,Bondrée apivore,4318,4318,0,18,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-F558C7F9,Busard Saint-Martin,28,27,1,20,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-63B6412E,Busard cendré,4,4,0,29,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-E2A19474,Busard des roseaux,544,543,1,14,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-22647E26,Busard pâle,3,3,0,2,7,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-3C0C325D,Buse variable,19030,18950,80,5,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-28825494,Cigogne blanche,4388,4388,0,1,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-E2817DAE,Cigogne noire,114,114,0,12,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-8372FFBA,Circaète Jean-le-Blanc,4,5,-1,6,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-2DAB45B8,Faucon crécerelle,757,757,0,5,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-E91E287A,Faucon hobereau,31,37,-6,23,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-47E58408,Faucon pèlerin,1,5,-4,14,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-F3DA111C,Faucon émerillon,28,28,0,23,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-3DF5C587,Grand Cormoran,15750,15750,0,3,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-49D9148A,Grande Aigrette,80,80,0,16,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-99B8841E,Grue cendrée,536,536,0,5,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-66AA3934,Guêpier d'Europe,746,746,0,2,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-6429024D,Héron cendré,562,562,0,21,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-06D9A2C8,Milan noir,16417,16418,-1,1,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-451D6FC8,Milan royal,18228,17876,352,1,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-68E4C0D1,Pigeon colombin,2241,2241,0,14,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-F837F893,Pigeon indéterminé,46642,46642,0,1,8,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-760F307A,Pigeon ramier,77022,77022,0,7,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-5A3D91D3,Pygargue à queue blanche,1,1,0,1,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-5D1987CE,Vautour fauve,,1,,,9,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-97C47F3E,Élanion blanc,3,3,0,1,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2021,avibase-DB376A66,Épervier d'Europe,1239,1238,1,11,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-C2565B65,Aigle pomarin,1,1,0,3,9,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-95DD1855,Autour des palombes,5,5,0,8,26,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-1327AC55,Balbuzard pêcheur,75,73,2,23,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-ED5A7E8F,Bondrée apivore,3188,3188,0,26,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-F558C7F9,Busard Saint-Martin,24,20,4,22,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-63B6412E,Busard cendré,7,7,0,25,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-E2A19474,Busard des roseaux,401,401,0,19,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-22647E26,Busard pâle,4,4,0,2,9,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-3C0C325D,Buse variable,6703,6169,534,30,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-28825494,Cigogne blanche,5648,5648,0,1,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-E2817DAE,Cigogne noire,86,85,1,18,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-8372FFBA,Circaète Jean-le-Blanc,11,11,0,2,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-2DAB45B8,Faucon crécerelle,570,570,0,8,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-E91E287A,Faucon hobereau,37,37,0,20,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-47E58408,Faucon pèlerin,14,14,0,1,21,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-F3DA111C,Faucon émerillon,48,48,0,9,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-3DF5C587,Grand Cormoran,20931,20781,150,2,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-49D9148A,Grande Aigrette,303,291,12,3,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-99B8841E,Grue cendrée,931,921,10,5,30,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-66AA3934,Guêpier d'Europe,778,778,0,2,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-6429024D,Héron cendré,1949,1943,6,1,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-06D9A2C8,Milan noir,7358,7265,93,9,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-451D6FC8,Milan royal,13703,13046,657,3,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-760F307A,Pigeon ramier,90705,90681,24,5,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-97C47F3E,Élanion blanc,1,1,0,4,7,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2023,avibase-DB376A66,Épervier d'Europe,865,866,-1,20,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-2A16982E,Aigle pomarin ou criard,1,1,0,1,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-5F8E7CA8,Aigle royal,1,1,0,9,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-95DD1855,Autour des palombes,3,3,0,15,27,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-1327AC55,Balbuzard pêcheur,92,92,0,15,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-ED5A7E8F,Bondrée apivore,1276,1276,0,32,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-F558C7F9,Busard Saint-Martin,11,10,1,31,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-63B6412E,Busard cendré,8,8,0,23,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-E2A19474,Busard des roseaux,584,584,0,14,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-22647E26,Busard pâle,4,4,0,2,10,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-3C0C325D,Buse variable,10165,9922,243,24,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-15369E8E,Bécasseau variable,3,3,0,1,6,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-9151E0BA,Bécassine des marais,4,4,0,5,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-28825494,Cigogne blanche,4733,4719,14,2,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-E2817DAE,Cigogne noire,76,76,0,22,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-8372FFBA,Circaète Jean-le-Blanc,9,9,0,3,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-3BB5CBA6,Courlis cendré,5,5,0,24,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-082F3A63,Courlis corlieu,5,5,0,13,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-2DAB45B8,Faucon crécerelle,1204,1204,0,2,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-9EA1F12D,,1,,,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-E91E287A,Faucon hobereau,17,17,0,31,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-47E58408,Faucon pèlerin,1,1,0,16,22,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-F3DA111C,Faucon émerillon,29,29,0,22,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-2D52E3A5,Goéland brun,2,2,0,3,18,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-00DA9D91,Goéland cendré,1,1,0,4,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-E826E9F3,,1,,,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-93CA037F,,1,,,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-3DF5C587,Grand Cormoran,19782,19708,74,4,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-EDA37B7C,Grand Gravelot,2,2,0,1,3,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-49D9148A,Grande Aigrette,476,476,0,1,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-99B8841E,Grue cendrée,260,260,0,12,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-66AA3934,Guêpier d'Europe,972,972,0,1,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-30FEC6BE,Hirondelle de fenêtre,17583,17583,0,1,25,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-55CCEE2D,Hirondelle indéterminée,15748,15748,0,18,29,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-58C502EA,Hirondelle rustique,15035,15032,3,6,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-6429024D,Héron cendré,2170,2094,76,1,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-CE71B4FF,Merle à plastron,96,96,0,1,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-06D9A2C8,Milan noir,6536,6529,7,15,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-451D6FC8,Milan royal,17372,17082,290,2,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-052BFA8A,Mouette mélanocéphale,72,72,0,1,20,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-FB02DD96,Mouette rieuse,500,500,0,7,17,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-9BE53D34,Mésange bleue,5466,5466,0,3,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-68E4C0D1,Pigeon colombin,7259,7259,0,1,31,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-F837F893,Pigeon indéterminé,6524,6524,0,6,11,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-760F307A,Pigeon ramier,178306,178306,0,2,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-319D044A,Pipit à gorge rousse,1,1,0,1,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-25A20BA6,Pluvier doré,1,1,0,6,8,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-0C120038,Pouillot à grands sourcils,1,1,0,1,2,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-5A3D91D3,Pygargue à queue blanche,1,1,0,2,6,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-BC06BC0D,Sterne caspienne,14,14,0,1,13,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-5D1987CE,Vautour fauve,6,6,0,2,11,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2024,avibase-DB376A66,Épervier d'Europe,1066,1065,1,14,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-BAC4CA22,Aigle criard,1,1,0,6,14,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-2A16982E,Aigle pomarin ou criard,2,2,0,1,6,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-5F8E7CA8,Aigle royal,2,1,1,6,19,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-95DD1855,Autour des palombes,9,8,1,3,28,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-1327AC55,Balbuzard pêcheur,120,121,-1,8,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-ED5A7E8F,Bondrée apivore,4408,4408,0,19,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-F558C7F9,Busard Saint-Martin,31,24,7,17,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-63B6412E,Busard cendré,9,9,0,22,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-E2A19474,Busard des roseaux,822,822,0,4,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-22647E26,Busard pâle,11,11,0,1,11,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-CC65921F,,1,,,1,1,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-3C0C325D,Buse variable,16338,12913,3425,10,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-28825494,Cigogne blanche,7848,7749,99,1,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-E2817DAE,Cigogne noire,137,137,0,6,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-8372FFBA,Circaète Jean-le-Blanc,20,20,0,1,30,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-2DAB45B8,Faucon crécerelle,1382,1376,6,2,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-E91E287A,Faucon hobereau,107,107,0,1,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-997A9437,Faucon kobez,4,4,0,1,5,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-47E58408,Faucon pèlerin,6,5,1,8,23,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-F3DA111C,Faucon émerillon,40,38,2,13,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-3DF5C587,Grand Cormoran,21978,,,2,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-49D9148A,Grande Aigrette,420,418,2,3,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-99B8841E,Grue cendrée,1004,965,39,4,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-6429024D,Héron cendré,1976,2199,-223,2,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-06D9A2C8,Milan noir,8927,9046,-119,6,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-451D6FC8,Milan royal,22678,19059,3619,1,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-68E4C0D1,Pigeon colombin,8788,8838,-50,1,32,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-760F307A,Pigeon ramier,342701,,,1,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-5A3D91D3,Pygargue à queue blanche,5,4,1,1,7,calendar year; normal direction; numeric values; no effort correction; absent entries unknown
+2025,avibase-DB376A66,Épervier d'Europe,2008,1969,39,3,33,calendar year; normal direction; numeric values; no effort correction; absent entries unknown

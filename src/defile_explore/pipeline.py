@@ -6,9 +6,10 @@ by the release and the code that produced it. `taxon_jobs` cuts it into one job 
 `build_taxon` turns a job into the taxon's species
 file:
 the raw tables as before (`days`,
-`hourly`, `annual`, `profile`, `reports`), `trend` (the GAM, cached per taxon), and the blocks
+`hourly`, `annual`, `profile`), `trend` (the GAM, cached per taxon), and the blocks
 derived from the same data and fit: `season`, `daytime`, `age`, `sex`, `records`,
-`key_numbers`, with the taxon's `settings`, `window`, `links` and `diagnostics`. The trend is fitted
+`key_numbers`, the written `accounts`, with the taxon's `settings`, `window`, `links` and
+`diagnostics`. The trend is fitted
 on the taxon's model window, the season panels show its view window (`defile_explore.window`).
 
 Each block names its `method` (`<name>@<version>`), matched by a section of defileViz's method
@@ -24,6 +25,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from defile_explore import accounts as A
 from defile_explore import daytime as Y
 from defile_explore import demography as G
 from defile_explore import export as E
@@ -71,7 +73,6 @@ class Shared:
     hourly: pd.DataFrame
     profiles: dict
     source: pd.Series
-    reports: pd.DataFrame
     demography: pd.DataFrame
     last_year: int
 
@@ -83,7 +84,7 @@ def load_shared(data_dir: str, ebird: pd.DataFrame, use_cache: bool = True) -> S
     if use_cache and os.path.exists(path):
         with open(path, "rb") as f:
             return pickle.load(f)
-    surveys, counts, taxonomy, reports, metadata = E.read_release(data_dir)
+    surveys, counts, taxonomy, metadata = E.read_release(data_dir)
     effort = E.build_effort(surveys)
     days = E.daily_counts(counts)
     hourly = E.hourly_counts(counts)
@@ -106,7 +107,6 @@ def load_shared(data_dir: str, ebird: pd.DataFrame, use_cache: bool = True) -> S
         hourly=hourly,
         profiles=profiles,
         source=source,
-        reports=reports,
         demography=demo.astype({"age": "string", "sex": "string"}),
         last_year=int(days["date"].max().year) - len(E.partial_years(days)),
     )
@@ -116,10 +116,12 @@ def load_shared(data_dir: str, ebird: pd.DataFrame, use_cache: bool = True) -> S
     return shared
 
 
-def taxon_jobs(shared: Shared, taxon_ids, overrides: dict, data_dir: str, use_cache=True):
-    """One job per taxon: everything `build_taxon` needs, cut from the shared stage."""
+def taxon_jobs(
+    shared: Shared, taxon_ids, overrides: dict, accounts: dict, data_dir: str, use_cache=True
+):
+    """One job per taxon: everything `build_taxon` needs, cut from the shared stage and the
+    `accounts` (`accounts.load_accounts`)."""
     tax = shared.taxonomy.set_index("taxon_id")
-    texts = shared.reports[shared.reports["category"] == E.REPORT_SPECIES]
     for taxon_id in taxon_ids:
         t = shared.taxa.set_index("taxon_id").loc[taxon_id]
         members = t["members"] if isinstance(t["members"], list) else [taxon_id]
@@ -138,7 +140,7 @@ def taxon_jobs(shared: Shared, taxon_ids, overrides: dict, data_dir: str, use_ca
             "effort": shared.effort,
             "profile": shared.profiles[taxon_id if src == "own" else src],
             "profile_source": src,
-            "reports": texts[texts["key"].isin([taxon_id, members[0]])][["year", "text"]],
+            "accounts": A.taxon_rows(accounts, taxon_id),
             "demography": shared.demography[shared.demography["taxon_id"].isin(members)],
             "overrides": overrides,
             "last_year": shared.last_year,
@@ -363,7 +365,7 @@ def build_taxon(job: dict) -> tuple[str, dict]:
         "hourly": E.columns(job["hourly"]),
         "annual": E.records(annual),
         "profile": {"source": job["profile_source"], **P.profile_table(profile)},
-        "reports": E.records(job["reports"]),
+        "accounts": A.accounts_block(job["accounts"], last),
         "trend": trend,
         "season": season,
         "daytime": daytime,

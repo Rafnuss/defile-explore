@@ -306,3 +306,15 @@ season's 10-90% in the last year (else the pooled counted seasons of the last 10
 fewest clock hours holding 60% of the profile on the median passage day, the typical season the
 median of the last 10 gap-filled totals, the trend the smooth's change from the start year, the
 chance the share of well-counted days in the main passage with at least 1 or 10 birds.
+
+**Written accounts replace the report extracts** (`accounts@1`). The page showed the paragraphs
+of the annual reports as extracted (French, unedited, and for a combined series those of its first
+member). It now shows authored accounts from `content/accounts/`: a general account in up to three
+sections and a short account per season, in French and English, edited from the reports and the
+2019 paper with the numbers left to the page's figures. The build reads only the two authored TSVs
+and checks them; `report_text.csv` and `paper_text.csv` are still copied with the release, for the
+editors' coverage and totals checks. `reports.json` (the non-species report texts) is no longer
+written: defileViz never read it. Location: `content/accounts/` in this repo, versioned and next to
+the code that reads it, rather than in defile-dataset (the accounts are written for this page, not
+data) or `data/` (generated, never committed); the authored files at its top, `reading/` and
+`review/` for what the editorial scripts regenerate.

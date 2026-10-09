@@ -2,12 +2,14 @@
 
 A copy, not a shared module: taken from defile-migration-forecast `src/data/counts.py` (commit
 13c5107, 2026-10-09) when Explore moved to its own repo. Only what Explore reads is kept; the
-forecast's survey-period processing stays there. The two repos are deliberately independent:
-a change to one copy is carried to the other by hand, as a decision (DECISIONS.md -> Repository).
+forecast's survey-period processing stays there. The two repos are deliberately independent: a
+change to one copy is carried to the other by hand, as a decision (DECISIONS.md -> Repository).
 
-The release (`count.csv`, `survey.csv`, `taxonomy.csv`, `report_text.csv`, `datapackage.json`, and
-the build's `metadata.json`) is copied into `data/count/dataset/` by `scripts/build_explore.py
---dataset <defile-dataset output folder>`.
+The release (`count.csv`, `survey.csv`, `taxonomy.csv`, `report_text.csv`, `paper_text.csv`,
+`README.md`, `datapackage.json`, and the build's `metadata.json`) is copied into
+`data/count/dataset/` by `scripts/build_explore.py --dataset <defile-dataset output folder>`. The
+build reads the count tables only: the report and paper extracts are copied for the editors of
+`content/accounts/` (`scripts/accounts/`), whose written accounts the page shows instead.
 """
 
 import os
@@ -22,9 +24,17 @@ TIMEZONE = "Europe/Paris"
 SITE = (46.117215, 5.914877)
 
 DATASET_DIR = os.path.join("count", "dataset")  # under the data dir
-# Release tables, in the release's `dataset/` folder; `metadata.json` sits one level up.
-REPORT_FILE = "report_text.csv"
-DATASET_FILES = ("count.csv", "survey.csv", "taxonomy.csv", REPORT_FILE, "datapackage.json")
+# Release tables, in the release's `dataset/` folder; `metadata.json` sits one level up. The text
+# extracts are sources for `content/accounts/`, not read by the build.
+DATASET_FILES = (
+    "count.csv",
+    "survey.csv",
+    "taxonomy.csv",
+    "report_text.csv",
+    "paper_text.csv",
+    "datapackage.json",
+    "README.md",
+)
 METADATA_FILE = "metadata.json"
 
 # The main migration direction (`count.csv` `count_category`); `reverse` and `local` are other
