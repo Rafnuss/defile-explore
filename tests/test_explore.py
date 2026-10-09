@@ -54,12 +54,16 @@ def _surveys(rows: list[tuple]) -> pd.DataFrame:
 def _counts(rows: list[tuple], surveys: pd.DataFrame) -> pd.DataFrame:
     """Rows: (survey id, own timing, taxon, count[, category, estimation]).
 
-    Own timing: a local 'YYYY-MM-DD HH:MM', a 'YYYY-MM-DD' (day level), or None (inherits).
+    Own timing: a local 'YYYY-MM-DD HH:MM', a 'YYYY-MM-DD' (day level), a (start, end) pair of
+    local times (its own interval), or None (inherits).
     """
     out = []
     for i, r in enumerate(rows):
         sid, t, taxon, count, category, estimation = (*r, "normal", None)[:6]
-        own = None if t is None else t if len(t) == 10 else iso(utc(t))
+        if isinstance(t, tuple):
+            own = f"{iso(utc(t[0]))}/{iso(utc(t[1]))}"
+        else:
+            own = None if t is None else t if len(t) == 10 else iso(utc(t))
         out.append(
             {
                 "count_id": f"c{i}",
@@ -515,3 +519,17 @@ def test_hour_dispersion_recovers_flocks(kappa):
     d, h = np.nonzero(birds)
     hourly = pd.DataFrame({"date": dates[d], "hour": h, "count": birds[d, h]})
     assert T.hour_dispersion(days, hourly, effort, profile) == pytest.approx(kappa, rel=0.25)
+
+
+def test_a_count_with_its_own_hour_is_timed_at_its_midpoint():
+    s = _surveys([("long", f"{DAY} 08:00", f"{DAY} 12:00")])
+    c = _counts(
+        [
+            ("long", (f"{DAY} 09:00", f"{DAY} 10:00"), "kite", 5),  # an hour: its midpoint
+            ("long", (f"{DAY} 09:00", f"{DAY} 11:00"), "kite", 7),  # longer: day level
+        ],
+        s,
+    )
+    assert c["datetime"].iloc[0] == utc(f"{DAY} 09:30")
+    assert pd.isna(c["datetime"].iloc[1]) and c["date"].iloc[1] == pd.Timestamp(DAY)
+    assert c["hour"].iloc[0] == 9 and pd.isna(c["hour"].iloc[1])

@@ -12,7 +12,11 @@ reasons. Three claims, each classed `show`, `caveat` (shown, with a sentence on 
 - `season`: the passage dates. Judged by the width of the median passage date's 80% band
   (`PASSAGE_BAND`, days) and by whether the passage runs past the counted days.
 
-Every reason is a code with the level it sets; a claim takes its worst reason's level.
+Every reason is a code with the level it sets; a claim takes its worst reason's level. `elements`
+applies the classes to what a page draws (`ELEMENTS`: each field of the export that rests on a
+claim, and the claim): defileViz shows, caveats or hides each one by it, with no rule of its own.
+Fields not listed (the birds counted, the empirical season, the chances, the daytime, age and sex,
+the records) are counts, shown whatever the trend's classes.
 `estimated_years` lists the years mostly filled (`ESTIMATED_SHARE`): a page can mark them. The
 numbers behind the reasons are in `inputs`. The recent-years test of the benchmark is not used: a
 season's level is not predictable from the earlier ones, which is the forecast's problem, not
@@ -22,7 +26,7 @@ Explore's.
 import numpy as np
 import pandas as pd
 
-METHOD = "reliability@1"
+METHOD = "reliability@2"
 CLASSES = ("show", "caveat", "hide")  # in order of severity
 FILL_ERROR = (0.15, 0.4)  # benchmark gap error: caveat above the first, hide above the second
 MIN_TRIALS = 6  # gap trials for the benchmark to count as a test
@@ -33,6 +37,15 @@ INTERVAL_RATIO = 2.0  # median q90 / q10 of the gap-filled totals (`wide_interva
 SMOOTH_BAND = (4.0, 20.0)  # median q97.5 / q2.5 of the smooth total: caveat, hide
 PASSAGE_BAND = (10.0, 30.0)  # median width of the passage date's 80% band, days: caveat, hide
 ESTIMATED_SHARE = 0.5  # a year with less than this share counted is mostly an estimate
+ELEMENTS = {  # field of the species file: the claim it rests on
+    "trend.annual.total": "totals",  # the gap-filled season totals, with q10/q90
+    "key_numbers.typical_season": "totals",
+    "trend.annual.smooth": "trend",  # the smooth total, with its 95% band
+    "key_numbers.trend": "trend",
+    "trend.passage": "season",  # each year's modelled passage dates
+    "trend.passage_q": "season",  # the smooth passage dates (lines on the phenology)
+    "key_numbers.passage": "season",  # when its `source` is `smooth`
+}
 
 
 def _ratio(hi: pd.Series, lo: pd.Series) -> float:
@@ -80,7 +93,9 @@ def classes(x: dict) -> dict:
             "fill_error": _level(*FILL_ERROR, x["gap_error"]) if tested else None,
             "intervals_too_narrow": (
                 "caveat"
-                if x["gap_trials"] >= MIN_COVER_TRIALS and cover is not None and cover < MIN_COVER80
+                if x["gap_trials"] >= MIN_COVER_TRIALS
+                and cover is not None
+                and cover < MIN_COVER80
                 else None
             ),
             "mostly_filled": "caveat" if x["observed_share"] < MIN_OBSERVED else None,
@@ -112,7 +127,8 @@ def reliability_block(trend: dict | None, bench, window: dict, profile: str) -> 
     a = pd.DataFrame(trend["annual"])
     return {
         "method": METHOD,
-        **classes(x),
+        **(c := classes(x)),
+        "elements": {k: c[claim]["class"] for k, claim in ELEMENTS.items()},
         "estimated_years": [int(y) for y in a.loc[a["observed_share"] < ESTIMATED_SHARE, "year"]],
         "inputs": x,
     }

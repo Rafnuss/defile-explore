@@ -39,8 +39,9 @@ where a block is checked first. Each block names its `method` (`name@version`): 
 when what the block means changes.
 
 `reliability` classes each trend claim (`totals`, `trend`, `season`) as `show`, `caveat` or `hide`
-with reason codes. The rule and its thresholds live in `reliability.py`; defileViz only filters on
-the classes and words the reasons. Change a threshold here, never add a filter of its own there.
+with reason codes, and `elements` gives each drawn field resting on a claim its class
+(`reliability.ELEMENTS`). The rule and its thresholds live in `reliability.py`; defileViz only
+looks fields up in `elements` and words the reasons. Change a threshold here, never add a filter of its own there.
 
 ## Written accounts
 

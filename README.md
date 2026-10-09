@@ -44,7 +44,8 @@ uv run python scripts/explore_viewer.py
 The viewer is for inspecting the model output in full detail: fits, intervals, windows, diagnostics,
 method versions. What visitors see is built in defileViz, from the same species files but trimmed
 and told as a story; a choice of what to show or hide (as the trend reliability classes) is defined
-here, in the export, and only applied there.
+here, in the export, and only applied there: the viewer still draws everything, and flags on each page and
+figure what defileViz will caveat or hide.
 
 ## Species and year accounts
 

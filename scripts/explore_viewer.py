@@ -5,7 +5,10 @@ it shows is what defileViz gets; a panel that needs a calculation here belongs i
 
 A developer's tool, focused on the model output: show everything that helps judge a fit, in full
 detail. The visitors' page is defileViz's, trimmed and narrative; it does not have to look like
-this one.
+this one. Everything is drawn, including what defileViz will hide: a page opens with what defileViz
+shows, caveats and hides (the `reliability` block's classes, applied to its `elements`), each
+figure starts with a strip saying the same for its parts, and a hidden part is greyed and labelled
+in the figure itself.
 
 Usage:
     python scripts/explore_viewer.py                    # -> logs/viewer/index.html + one page per taxon
@@ -21,6 +24,8 @@ import numpy as np
 import plotly
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+from defile_explore.reliability import ELEMENTS
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COLORS = ["#4C78A8", "#F58518", "#54A24B", "#B279A2", "#E45756"]
@@ -59,6 +64,8 @@ td,th{border-bottom:1px solid #eee;padding:3px 6px;text-align:left}
 td.n{text-align:right}
 p.rn{margin:2px 0;font-size:12px;max-height:120px;overflow:auto}
 td{vertical-align:top}
+.vis{font-size:12px;margin:2px 4px 6px;padding:4px 6px;background:#f6f6f6;border-radius:4px}
+.vis b{color:#555}.why{color:#888;font-size:11px}
 """
 
 
@@ -84,11 +91,12 @@ def arr(x):
     return np.array([np.nan if v is None else v for v in x], float)
 
 
-def panel(fig, title, note="", top=40):
+def panel(fig, title, note="", top=40, strip=""):
     fig.update_layout(template="plotly_white", margin=dict(l=50, r=20, t=top, b=40),
                       title=dict(text=title, font=dict(size=14)))  # fmt: skip
     return (
         '<div class="panel">'
+        + strip
         + fig.to_html(full_html=False, include_plotlyjs=False, config={"responsive": True})
         + (f'<p class="note">{note}</p>' if note else "")
         + "</div>"
@@ -99,36 +107,145 @@ def method(block) -> str:
     return f" <span style='font-size:11px;color:#888'>[{block['method']}]</span>" if block else ""
 
 
+# --- what defileViz shows ---------------------------------------------------------------------
+
+CLASS_STYLE = {"show": "#e6f4ea;color:#1e6b34", "caveat": "#fff4e0;color:#8a5300",
+               "hide": "#fdecea;color:#b71c1c"}  # fmt: skip
+CLAIMS = ("totals", "trend", "season")
+PARTS = {  # `reliability.ELEMENTS`: what this viewer draws of each
+    "trend.annual.total": "season totals (points, 80%)",
+    "key_numbers.typical_season": "key number: typical season",
+    "trend.annual.smooth": "smooth trend (line, 95% band)",
+    "key_numbers.trend": "key number: trend",
+    "trend.passage": "modelled passage dates per year",
+    "trend.passage_q": "smooth passage dates (lines)",
+    "key_numbers.passage": "key number: main passage",
+}
+HIDDEN_OPACITY = 0.3
+
+
+def badge(cls: str, text: str | None = None) -> str:
+    return (f"<span class='flag' style='background:{CLASS_STYLE[cls]}'>"
+            f"{html.escape(text or cls)}</span>")  # fmt: skip
+
+
+def fate(sp: dict, element: str) -> str:
+    """The class defileViz gives a drawn element; `show` for counts, which rest on no claim."""
+    if element == "key_numbers.passage" and sp["key_numbers"]["passage"]["source"] != "smooth":
+        return "show"
+    return ((sp.get("reliability") or {}).get("elements") or {}).get(element, "show")
+
+
+def reasons(sp: dict, element: str) -> str:
+    q = sp.get("reliability")
+    if not q or element not in ELEMENTS or fate(sp, element) == "show":
+        return ""
+    claim = q[ELEMENTS[element]]
+    codes = ", ".join(r["code"] for r in claim["reasons"])
+    return f"<span class='why'>({ELEMENTS[element]}: {html.escape(codes)})</span>"
+
+
+def strip(sp: dict, elements=(), counts: str = "") -> str:
+    """One line over a figure: what defileViz does with each of its parts."""
+    items = [f"{badge(fate(sp, e), PARTS[e])} {reasons(sp, e)}" for e in elements]
+    if counts:
+        items.insert(0, badge("show", counts))
+    return f"<div class='vis'><b>defileViz:</b> {' '.join(items)}</div>"
+
+
+def legend(sp: dict, element: str, name: str) -> dict:
+    """A trace's name and opacity: tagged with its class unless shown, greyed when hidden."""
+    cls = fate(sp, element)
+    tag = "" if cls == "show" else f" [{cls.upper()}]"
+    return {"name": name + tag, "opacity": HIDDEN_OPACITY if cls == "hide" else 1}
+
+
+def hidden_note(fig, sp: dict, elements, row=None, col=None) -> None:
+    """A watermark over a figure whose parts defileViz hides."""
+    hidden = [PARTS[e] for e in elements if fate(sp, e) == "hide"]
+    if hidden:
+        fig.add_annotation(text="Hidden on defileViz: " + "; ".join(hidden), showarrow=False,
+                           x=0.5, y=0.5, xref="x domain" if row else "paper",
+                           yref="y domain" if row else "paper", bgcolor="rgba(253,236,234,0.85)",
+                           font=dict(color="#b71c1c", size=13), row=row, col=col)  # fmt: skip
+
+
+def display_panel(sp: dict, tx: dict) -> str:
+    """The page's opening: every part of it, and what defileViz does with it."""
+    q = sp.get("reliability")
+    rows = []
+    if q:
+        for c in CLAIMS:
+            parts = ", ".join(PARTS[e] for e, claim in ELEMENTS.items() if claim == c)
+            why = ", ".join(f"{r['code']} ({r['level']})" for r in q[c]["reasons"]) or "–"
+            rows.append((badge(q[c]["class"]), f"<b>{c}</b>: {parts}", why))
+    else:
+        rows.append((badge("hide"), "<b>trend</b>: no model (tier or settings)", "–"))
+    d = sp["daytime"]
+    rows += [
+        (badge("show"), "birds counted per year, empirical phenology, chances, records, "
+                        "accounts, key numbers from counts", "counts"),
+        (badge("show") if d and d["hours"] is not None else badge("hide"),
+         "passage during the day: " + ("not built" if not d or d["hours"] is None else
+                                       "by date" if d["change"]["show"] else "one histogram"),
+         "" if not d or d["hours"] is None or d["change"]["show"] else "no change over the season"),
+        *((badge("show") if sp[f] else badge("hide"), f"{f}: " + (
+            f"{len(sp[f]['years'])} years" if sp[f] else "not built"),
+           "" if sp[f] else "too few birds classed") for f in ("age", "sex")),
+    ]  # fmt: skip
+    if q:
+        est = ", ".join(map(str, q["estimated_years"])) or "none"
+        rows.append((badge("caveat" if q["estimated_years"] else "show"),
+                     f"years marked as mostly estimated: {est}", "under half counted"))  # fmt: skip
+    body = "".join(
+        f"<tr><td>{a}</td><td>{b}</td><td class='why'>{c}</td></tr>" for a, b, c in rows
+    )
+    return (f"<div class='panel'><table><tr><th>defileViz</th><th>part</th><th>why</th></tr>"
+            f"{body}</table><p class='note'>Everything below is drawn; [CAVEAT] and [HIDE] mark "
+            f"the parts defileViz caveats or leaves out.</p></div>")  # fmt: skip
+
+
 # --- panels -----------------------------------------------------------------------------------
 
 
-def key_numbers(k: dict) -> str:
+def key_numbers(sp: dict) -> str:
+    k = sp["key_numbers"]
     items = []
     p = k["passage"]
     if p["q50"] is not None:
         items.append(("Main passage (80% of birds)", f"{doy_label(p['q10'])} – {doy_label(p['q90'])}",
-                      f"median {doy_label(p['q50'])} ({p['source']})"))  # fmt: skip
+                      f"median {doy_label(p['q50'])} ({p['source']})", "key_numbers.passage"))  # fmt: skip
     if "best_hours" in k:
         b = k["best_hours"]
         items.append(("Best hours", f"{b['from']:02d}:00 – {b['to']:02d}:00",
-                      f"{b['share']:.0%} of a peak day"))  # fmt: skip
+                      f"{b['share']:.0%} of a peak day", None))  # fmt: skip
     if "typical_season" in k:
         t = k["typical_season"]
         items.append(("Typical season", f"{t['median']:,.0f}",
-                      f"{t['min']:,.0f}–{t['max']:,.0f}, {t['years'][0]}–{t['years'][1]}"))  # fmt: skip
+                      f"{t['min']:,.0f}–{t['max']:,.0f}, {t['years'][0]}–{t['years'][1]}",
+                      "key_numbers.typical_season"))  # fmt: skip
     if "trend" in k:
         t = k["trend"]
-        items.append(("Trend", f"{t['change']:+.0%}", f"smooth, {t['from']} → {t['to']}"))
+        items.append(("Trend", f"{t['change']:+.0%}", f"smooth, {t['from']} → {t['to']}",
+                      "key_numbers.trend"))  # fmt: skip
     if "chance" in k:
         c = k["chance"]
         items.append(("Chance of ≥1 / ≥10 in the main passage",
-                      f"{c['at_least_1']:.0%} / {c['at_least_10']:.0%}", f"{c['days']} days"))  # fmt: skip
+                      f"{c['at_least_1']:.0%} / {c['at_least_10']:.0%}", f"{c['days']} days", None))  # fmt: skip
     if "record" in k:
-        items.append(("Record day", f"{k['record']['count']:,.0f}", k["record"]["date"]))
+        items.append(("Record day", f"{k['record']['count']:,.0f}", k["record"]["date"], None))
+
+    def tag(e):
+        cls = "show" if e is None else fate(sp, e)
+        return badge(cls, "shown" if cls == "show" else cls.upper()) + (
+            reasons(sp, e) if e else ""
+        )
+
     cells = "".join(
-        f'<div class="kn"><div class="kl">{html.escape(a)}</div><div class="kv">{b}</div>'
-        f'<div class="ks">{html.escape(str(c))}</div></div>'
-        for a, b, c in items
+        f'<div class="kn"{" style=opacity:.5" if e and fate(sp, e) == "hide" else ""}>'
+        f'<div class="kl">{html.escape(a)}</div><div class="kv">{b}</div>'
+        f'<div class="ks">{html.escape(str(c))}</div><div>{tag(e)}</div></div>'
+        for a, b, c, e in items
     )
     return f'<div class="knrow">{cells}</div>'
 
@@ -149,15 +266,17 @@ def trend_panel(sp: dict, effort_annual: list) -> str:
     fig.add_trace(go.Bar(x=[r["year"] for r in raw], y=[r["window"] for r in raw], width=0.8,
                          name="historical counts (raw, not comparable)", visible=False,
                          marker_color="rgba(150,150,150,0.5)"), 1, 1)  # fmt: skip
+    smooth, total = "trend.annual.smooth", "trend.annual.total"
     fig.add_trace(go.Scatter(x=a["year"], y=a["smooth_q97.5"], line=dict(width=0),
                              showlegend=False, hoverinfo="skip"), 1, 1)  # fmt: skip
     fig.add_trace(go.Scatter(x=a["year"], y=a["smooth_q2.5"], fill="tonexty", line=dict(width=0),
-                             fillcolor="rgba(76,120,168,0.18)", name="smooth trend 95%",
-                             hoverinfo="skip"), 1, 1)  # fmt: skip
-    fig.add_trace(go.Scatter(x=a["year"], y=a["smooth"], name="smooth trend (typical year)",
-                             line=dict(color=COLORS[0], width=2.5)), 1, 1)  # fmt: skip
+                             fillcolor="rgba(76,120,168,0.18)", hoverinfo="skip",
+                             **legend(sp, smooth, "smooth trend 95%")), 1, 1)  # fmt: skip
+    fig.add_trace(go.Scatter(x=a["year"], y=a["smooth"], line=dict(color=COLORS[0], width=2.5),
+                             **legend(sp, smooth, "smooth trend (typical year)")), 1, 1)  # fmt: skip
     fig.add_trace(go.Scatter(
-        x=a["year"], y=a["total"], mode="markers", name="season total (gap-filled, 80%)",
+        x=a["year"], y=a["total"], mode="markers",
+        **legend(sp, total, "season total (gap-filled, 80%)"),
         marker=dict(size=8, color="black"),
         error_y=dict(type="data", symmetric=False, array=a["q90"] - a["total"],
                      arrayminus=a["total"] - a["q10"], thickness=1, color="#555"),
@@ -186,19 +305,18 @@ def trend_panel(sp: dict, effort_annual: list) -> str:
         ])])  # fmt: skip
     fig.update_yaxes(title="birds / season", row=1, col=1)
     fig.update_yaxes(title="days", row=2, col=1)
+    hidden_note(fig, sp, (total, smooth), 1, 1)
+    est = set((sp.get("reliability") or {}).get("estimated_years", []))
+    if est:  # the years defileViz marks as mostly estimated
+        fig.add_trace(go.Scatter(x=[y for y in a["year"] if y in est],
+                                 y=[v for y, v in zip(a["year"], a["total"]) if y in est],
+                                 mode="markers", name="mostly estimated (marked)",
+                                 marker=dict(size=13, color="rgba(0,0,0,0)",
+                                             line=dict(color="#8a5300", width=2))), 1, 1)  # fmt: skip
     return panel(fig, "Long-term trend" + method(t),
-                 "Bars: birds counted. Points: counted + posterior fill (80%). Line: smooth trend. "
-                 "Bottom: days counted in the window (all taxa).")  # fmt: skip
-
-
-CLASS_STYLE = {"show": "#e6f4ea;color:#1e6b34", "caveat": "#fff4e0;color:#8a5300",
-               "hide": "#fdecea;color:#b71c1c"}  # fmt: skip
-CLAIMS = ("totals", "trend", "season")
-
-
-def badge(cls: str, text: str | None = None) -> str:
-    return (f"<span class='flag' style='background:{CLASS_STYLE[cls]}'>"
-            f"{html.escape(text or cls)}</span>")  # fmt: skip
+                 "Bars: birds counted. Points: counted + posterior fill (80%); ringed: under half "
+                 "counted. Line: smooth trend. Bottom: days counted in the window (all taxa).",
+                 strip=strip(sp, (total, smooth), "birds counted"))  # fmt: skip
 
 
 def reliability_panel(sp: dict) -> str:
@@ -285,8 +403,9 @@ def season_panel(sp: dict) -> str:
     for col, dash, lab in (("q10", "dot", "10%"), ("q50", "solid", "50%"), ("q90", "dot", "90%")):
         if smooth:
             fig.add_trace(go.Scatter(x=[r[col] for r in smooth], y=[r["year"] for r in smooth],
-                                     mode="lines", name=f"{lab} smooth", legendgroup=lab,
-                                     line=dict(color="black", dash=dash, width=1.5)))  # fmt: skip
+                                     mode="lines", legendgroup=lab,
+                                     line=dict(color="black", dash=dash, width=1.5),
+                                     **legend(sp, "trend.passage_q", f"{lab} smooth")))  # fmt: skip
         fig.add_trace(go.Scatter(x=p[col], y=p["year"], mode="markers", name=f"{lab} that year",
                                  legendgroup=lab,
                                  marker=dict(color="white" if col == "q50" else "#333", size=7,
@@ -300,6 +419,8 @@ def season_panel(sp: dict) -> str:
                 fig.add_vline(x=x, line=dict(color=color, dash="dash"))
     doy_axis(fig)
     fig.update_layout(height=FIG_H + 160, legend=dict(orientation="h", y=-0.1))
+    if smooth:
+        hidden_note(fig, sp, ("trend.passage_q",))
     title = "Phenology, every year: share of the season's birds per day"
     if smooth:
         title += (
@@ -310,7 +431,8 @@ def season_panel(sp: dict) -> str:
                  "(paler = more of the season uncounted). Lines: the smooth. Dashed: the model "
                  f"window {' - '.join(w['model'])} (blue) where it differs from the default "
                  f"{' - '.join(w['default'])} (grey); shown: {' - '.join(w['view'])}. "
-                 f"Passage beyond counting: {', '.join(w['beyond_counting']) or 'no'}.")  # fmt: skip
+                 f"Passage beyond counting: {', '.join(w['beyond_counting']) or 'no'}.",
+                 strip=strip(sp, ("trend.passage_q",) if smooth else (), "counted share per day"))  # fmt: skip
 
 
 def chances_panel(sp: dict) -> str:
@@ -324,7 +446,8 @@ def chances_panel(sp: dict) -> str:
     fig.update_yaxes(tickformat=".0%", range=[0, 1], title="share of counted days")
     fig.update_layout(height=FIG_H)
     return panel(fig, f"Your chances ({ch['years'][0]}–{ch['years'][1]})",
-                 "Share of well-counted days with at least N birds.")  # fmt: skip
+                 "Share of well-counted days with at least N birds.",
+                 strip=strip(sp, counts="counted days"))  # fmt: skip
 
 
 def daytime_panel(sp: dict) -> str:
@@ -366,7 +489,8 @@ def daytime_panel(sp: dict) -> str:
     return panel(fig, f"Passage during the day ({d['years'][0]}–{d['years'][1]}, {d['days']} "
                       f"days timed)" + method(d),
                  "Bars: birds per counted hour, as shares, pooled over the season. " + change,
-                 top=75 if ch["show"] else 40)  # fmt: skip
+                 top=75 if ch["show"] else 40,
+                 strip=strip(sp, counts="by date" if ch["show"] else "one histogram"))  # fmt: skip
 
 
 DEMOGRAPHY = {  # field: (what is plotted, its class labels, verb)
@@ -411,7 +535,8 @@ def demography_panel(sp: dict, field: str) -> str:
     note = "Female-type: female or juvenile, not separable in the field." if field == "sex" else ""
     return panel(fig, f"{field.capitalize()}: {o['share']:.0%} {labels[0]} ({o['lo']:.0%}–"
                       f"{o['hi']:.0%}), {o['n']:,.0f} {verb} of {o['counted']:,.0f} counted"
-                      + method(a), note, top=75)  # fmt: skip
+                      + method(a), note, top=75,
+                 strip=strip(sp, counts=f"{len(y)} years"))  # fmt: skip
 
 
 def records_panel(sp: dict) -> str:
@@ -419,11 +544,16 @@ def records_panel(sp: dict) -> str:
         ref = "" if n["ref"] is None else f"<i>{html.escape(n['ref'])}</i> — "
         return f"<p class='rn'>{ref}{html.escape(n['text'])}</p>"
 
+    def day(r):
+        if r.get("trektellen") is None:
+            return r["date"]
+        return f"<a href='{r['trektellen']}' target='_blank'>{r['date']}</a>"
+
     def notes(r):
         return "".join(note(n) for n in r["notes"])
 
     rows = "".join(
-        f"<tr><td>{i + 1}</td><td>{r['date']}</td><td class='n'>{r['count']:,.0f}</td>"
+        f"<tr><td>{i + 1}</td><td>{day(r)}</td><td class='n'>{r['count']:,.0f}</td>"
         f"<td>{notes(r)}</td></tr>"
         for i, r in enumerate(sp["records"]["top_days"])
     )
@@ -482,7 +612,8 @@ def page(tx: dict, sp: dict, effort_annual: list) -> str:
 <i>{html.escape(str(tx['scientific_name']))}</i> · {html.escape(str(tx['french_name']))} ·
 tier {tx['tier']} · from {tx['start_year']}</small></h2>
 <div>{links}</div>
-<h3>Key numbers</h3>{key_numbers(sp['key_numbers'])}
+<h3>On defileViz</h3>{display_panel(sp, tx)}
+<h3>Key numbers</h3>{key_numbers(sp)}
 <h3>Diagnostics</h3><div class="panel">flags: {flags}<br><span class="note">
 {html.escape(json.dumps({k: v for k, v in diag.items() if k != 'flags'}))}</span>
 <table><tr><th>setting</th><th>value</th><th>source</th><th>reason</th></tr>{settings}</table></div>

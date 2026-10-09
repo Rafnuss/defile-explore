@@ -323,6 +323,22 @@ The recent-seasons test is exported and drawn but not used: a season's level is 
 from earlier seasons (median error 0.8), which is a forecast question. The year-by-year marking
 (`estimated_years`, under half counted) is for the page to show, not a class.
 
+**The classes are applied to what a page draws in the export, not in defileViz
+(`reliability@2`).** `reliability.ELEMENTS` names each field that rests on a claim (the season
+totals and the typical-season key number on `totals`; the smooth and the trend key number on
+`trend`; the modelled passage dates, their smooth and the main-passage key number on `season`) and
+the block's `elements` gives each its class, so defileViz looks a field up rather than knowing
+which claim it belongs to. Counts (birds counted, the empirical phenology, chances, daytime, age,
+sex, records) rest on no claim and are always shown. The viewer draws everything and flags what
+defileViz will do: a summary at the top of each page, a strip over each figure, hidden traces
+greyed and tagged `[HIDE]` with a watermark, the mostly estimated years ringed. On the 2025
+release: totals 49 / 18 / 7, trend 38 / 29 / 7, season 27 / 47 / 0.
+
+**A count with its own interval of up to an hour is timed at its midpoint
+(`release.MAX_COUNT_INTERVAL`); a longer one is kept at day level.** Trektellen's hourly entries
+reach the release from 2025 (30 counts on 23 Nov 2025, each 1 h); refusing them stopped the build,
+and the hour they fall in is all the pipeline uses. Decided by the user: no need for more.
+
 **The posterior's information is evaluated at a rate of at least 0.1 birds per full day
 (`trend.MIN_RATE`, `information_weights`).** Where a taxon is counted but never seen (Common Wood
 Pigeon on 18-25 July: 33 years of zeros), the season spline runs towards minus infinity and the

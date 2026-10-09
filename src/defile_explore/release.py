@@ -45,6 +45,11 @@ PRESENCE_ONLY = "x"
 # The dataset keeps an entry timed outside its survey at day level, like an untimed one; only its
 # `remark_processing` tells the two apart.
 OUTSIDE_SURVEY_REMARK = "Entry time outside the native survey"
+# The recording era of the surveys entered on trektellen.org (`survey.csv` `recording_era`).
+TREKTELLEN_ERA = "trektellen"
+# A count with its own interval up to this long is timed at the interval's midpoint; a longer one is
+# kept at day level, like an untimed entry.
+MAX_COUNT_INTERVAL = pd.Timedelta(hours=1)
 # Civil twilight: the sun's altitude (deg) at dawn and dusk.
 NIGHT_SUN_ALTITUDE = -6.0
 
@@ -65,7 +70,7 @@ def parse_surveys(survey: pd.DataFrame) -> pd.DataFrame:
     s["start"] = pd.to_datetime(bounds[0], utc=True)
     s["end"] = pd.to_datetime(bounds[1], utc=True)
     s["date"] = local_date(s["start"])
-    s["source"] = np.where(s["recording_era"] == "trektellen", "trektellen", "historical")
+    s["source"] = np.where(s["recording_era"] == TREKTELLEN_ERA, "trektellen", "historical")
     return s
 
 
@@ -79,17 +84,14 @@ def parse_counts(count: pd.DataFrame, surveys: pd.DataFrame, taxonomy: pd.DataFr
     `datetime` (UTC; NaT when untimed).
 
     A count's `datetime` is either empty (it inherits its survey's interval), a local date (untimed,
-    or timed outside its survey: the dataset keeps it at day level), or a UTC time. The dataset also
-    allows a UTC interval, which no release has used; it is refused rather than guessed at.
+    or timed outside its survey: the dataset keeps it at day level), a UTC time, or a UTC interval
+    of its own (Trektellen's hourly entries since 2025): timed at its midpoint when it lasts up to
+    `MAX_COUNT_INTERVAL`, kept at day level when longer.
     """
     c = count.copy()
     raw = c["datetime"].fillna("")
-    interval = raw.str.contains("/")
-    if interval.any():
-        raise ValueError(
-            f"{interval.sum()} count(s) with their own interval (e.g. "
-            f"{c.loc[interval, 'count_id'].iloc[0]}): not handled."
-        )
+    own = raw.str.contains("/")
+    raw[own] = raw[own].map(_interval_time)
     date_only = raw.str.len() == 10
     timed = raw.str.contains("T")
     c["datetime"] = pd.to_datetime(raw.where(timed), utc=True, format="ISO8601")
@@ -101,6 +103,15 @@ def parse_counts(count: pd.DataFrame, surveys: pd.DataFrame, taxonomy: pd.DataFr
     names = taxonomy.set_index("taxon_id")["english_name"]
     c["species"] = c["taxon_id"].map(names)
     return c
+
+
+def _interval_time(interval: str) -> str:
+    """A count's own interval as a UTC time (its midpoint) or, longer than `MAX_COUNT_INTERVAL`,
+    the local date of its start."""
+    start, end = (pd.Timestamp(t) for t in interval.split("/"))
+    if end - start <= MAX_COUNT_INTERVAL:
+        return (start + (end - start) / 2).isoformat()
+    return str(local_date(pd.Series([start])).iloc[0].date())
 
 
 def civil_twilight(dates: pd.Series) -> tuple[pd.Series, pd.Series]:

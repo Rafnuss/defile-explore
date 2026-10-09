@@ -412,3 +412,20 @@ def test_an_undetermined_passage_date_hides_the_season():
     c = Q.classes(reliability_inputs(passage_band=80.0, beyond_counting=["late"]))
     assert c["season"]["class"] == "hide"
     assert {r["code"] for r in c["season"]["reasons"]} == {"passage_band", "beyond_counting"}
+
+
+def test_each_element_takes_its_claims_class():
+    trend = {
+        "annual": [
+            {"year": y, "observed_share": 0.4 if y == 2001 else 0.9, "q10": 90.0, "q90": 110.0,
+             "smooth_q2.5": 10.0, "smooth_q97.5": 500.0}
+            for y in (2000, 2001)
+        ],  # fmt: skip
+        "passage": [{"year": 2000, "lo": 250.0, "hi": 255.0}],
+    }
+    bench = {"gap": {"abs_log_err": 0.05, "cover80": 0.9, "n": 30}}
+    q = Q.reliability_block(trend, bench, {"beyond_counting": []}, "own")
+    assert q["trend"]["class"] == "hide" and q["totals"]["class"] == "show"
+    assert q["elements"]["trend.annual.smooth"] == q["elements"]["key_numbers.trend"] == "hide"
+    assert q["elements"]["trend.annual.total"] == "show"
+    assert q["estimated_years"] == [2001]

@@ -29,13 +29,15 @@ fit, in detail); the visitors' page is designed in defileViz. What the first ful
 ### Trend reliability
 
 The benchmark runs on every trend taxon and each claim is classed (`DECISIONS.md` -> Pipeline,
-`reliability@1`). Open:
+`reliability@2`); the viewer flags on every page and figure what defileViz will caveat or hide.
+Open:
 
 - Review the thresholds on the viewer (index columns totals / trend / season), now that the
   blown-up bands are fixed (`DECISIONS.md` -> Pipeline, information floor).
 - Passerine trends from 2007 rise 20-140x in some taxa (Common Reed Bunting, Common Linnet):
   check that identification and recording effort did not grow with them before showing a trend.
-- defileViz: implement the filter and the caveat sentences from the reason codes.
+- defileViz: implement the filter from `reliability.elements` and the caveat sentences from the
+  reason codes.
 
 ## Phase 3: methods
 
