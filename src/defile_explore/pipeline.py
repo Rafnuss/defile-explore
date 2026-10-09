@@ -314,11 +314,12 @@ def key_numbers(job, frame, trend, season, records) -> dict:
             "max": float(recent.max()),
             "years": [last - KEY_YEARS + 1, last],
         }
-        out["trend"] = {
-            "change": float(a["smooth"].iloc[-1] / a["smooth"].iloc[0] - 1),
-            "from": int(a["year"].iloc[0]),
-            "to": int(a["year"].iloc[-1]),
-        }
+        if a["smooth"].iloc[0] > 0:  # no change from nothing (Eurasian Bullfinch from 2007)
+            out["trend"] = {
+                "change": float(a["smooth"].iloc[-1] / a["smooth"].iloc[0] - 1),
+                "from": int(a["year"].iloc[0]),
+                "to": int(a["year"].iloc[-1]),
+            }
     top = records["top_days"]
     if len(top):
         out["record"] = {"date": top["date"].iloc[0], "count": float(top["count"].iloc[0])}
