@@ -5,8 +5,8 @@ Reads `data/count/dataset/` (copied by `python scripts/build_counts.py --dataset
 `data/explore/`: `manifest.json`, `taxa.json`, `effort.json`, `reports.json` and
 `species/<taxon_id>.json`, with French names from the eBird taxonomy (downloaded once, no key).
 `src/explore/` documents each file. Raw values are aggregations of the release; the species files'
-effort-adjusted values and `trend` (the GAM, about 4 min for the full tier on 11 cores) are
-labelled as such. Copy the folder to defileViz's `public/data/explore/` to publish it.
+effort-adjusted values and `trend` (the GAM, about 1 min for the full tier on 12 cores, after
+~80 s of time-of-day profiles) are labelled as such. Copy the folder to defileViz's `public/data/explore/` to publish it.
 
 Usage:
     python scripts/build_explore.py
@@ -19,7 +19,6 @@ import os
 import shutil
 import subprocess
 import urllib.request
-from concurrent.futures import ProcessPoolExecutor
 
 import pandas as pd
 import rootutils
@@ -51,6 +50,7 @@ def trend_of(args) -> tuple[str, dict]:
         "annual": E.records(t["annual"]),
         "passage": E.records(t["passage"]),
         "season": t["season"],
+        "episodes": t["episodes"],
     }
 
 
@@ -74,7 +74,7 @@ def trends(taxa, days, hourly, effort, profiles, source, last_year: int, workers
         )
         for _, t in full.iterrows()
     ]
-    with ProcessPoolExecutor(workers) as ex:
+    with T.worker_pool(workers) as ex:
         return dict(ex.map(trend_of, jobs))
 
 

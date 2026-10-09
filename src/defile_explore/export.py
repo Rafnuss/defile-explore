@@ -24,8 +24,8 @@ Files, written by `scripts/build_explore.py` (one `build_*` function each):
   effort-adjusted count; per local hour, the birds timed to it; per year, totals and the
   effort-adjusted index; the time-of-day profile used; the species' report texts; and for
   full-tier species and combined series, `trend` (`src.explore.trend.taxon_trend`): gap-filled
-  annual totals with intervals, the smooth trend, the median passage date per year and the smooth
-  season in the first and last year.
+  annual totals with intervals, the smooth trend, the median passage date per year, the smooth
+  season in the first and last year, and each year's season with and without its weather episodes.
 - `reports.json`: the report texts that are not about one species (site, monitoring, weather,
   results, outreach).
 

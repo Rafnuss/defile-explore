@@ -113,31 +113,42 @@ def uniform_profile(light: np.ndarray) -> np.ndarray:
 
 
 def build_profiles(
-    taxa: pd.DataFrame, days: pd.DataFrame, hourly: pd.DataFrame, effort: pd.DataFrame
+    taxa: pd.DataFrame,
+    days: pd.DataFrame,
+    hourly: pd.DataFrame,
+    effort: pd.DataFrame,
+    only=None,
 ) -> tuple[dict, pd.Series]:
     """`(profiles, source)`: one p(h | doy) per taxon id, group and "uniform" (on `PROFILE_DOY`),
-    and each taxon's profile source (`own`, a group name, or `uniform`)."""
+    and each taxon's profile source (`own`, a group name, or `uniform`).
+
+    With `only` (taxon ids), just the profiles those taxa use, and `source` for them alone: a
+    group's profile is fitted on all its members, but only if one of them lacks its own (the
+    passerine and "other" groups are most of the time here).
+    """
     doy_grid = np.arange(PROFILE_DOY[0], PROFILE_DOY[1] + 1)
     light = daylight(doy_grid)
     profiles = {"uniform": uniform_profile(light)}
     timed = hourly.groupby("taxon_id")["count"].sum()
     group = taxa.set_index("taxon_id")["order"].map(PROFILE_GROUPS).fillna("other")
-    source = pd.Series("uniform", index=taxa["taxon_id"].to_numpy())
-    for g in sorted(group.unique()):
-        members = group.index[group == g]
-        samples = profile_samples(
-            days[days["taxon_id"].isin(members)], hourly[hourly["taxon_id"].isin(members)], effort
-        )
-        if len(samples):
-            profiles[g] = fit_profile(samples, doy_grid, light, label=g)
-            source[members] = g
-    for taxon_id in timed.index[timed >= PROFILE_MIN_BIRDS]:
+    wanted = group.index if only is None else pd.Index(only)
+    source = pd.Series("uniform", index=wanted)
+    for taxon_id in timed.index[(timed >= PROFILE_MIN_BIRDS) & timed.index.isin(wanted)]:
         samples = profile_samples(
             days[days["taxon_id"] == taxon_id], hourly[hourly["taxon_id"] == taxon_id], effort
         )
         if len(samples):
             profiles[taxon_id] = fit_profile(samples, doy_grid, light, label=taxon_id)
             source[taxon_id] = "own"
+    needed = group if only is None else group[source.index[source != "own"]]
+    for g in sorted(needed.unique()):
+        members = group.index[group == g]
+        samples = profile_samples(
+            days[days["taxon_id"].isin(members)], hourly[hourly["taxon_id"].isin(members)], effort
+        )
+        if len(samples):
+            profiles[g] = fit_profile(samples, doy_grid, light, label=g)
+            source[source.index.isin(members) & (source != "own")] = g
     return profiles, source
 
 

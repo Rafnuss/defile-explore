@@ -27,7 +27,6 @@ Usage:
 import argparse
 import os
 import time
-from concurrent.futures import ProcessPoolExecutor
 
 import matplotlib
 
@@ -76,7 +75,8 @@ def load(data_dir: str, names) -> dict:
     hourly = E.hourly_counts(counts)
     taxonomy, days, hourly = E.add_combined(taxonomy, days, hourly)
     taxa = E.build_taxa(taxonomy, days)
-    profiles, source = P.build_profiles(taxa, days, hourly, effort)
+    ids = taxa.loc[taxa["english_name"].isin(names), "taxon_id"]
+    profiles, source = P.build_profiles(taxa, days, hourly, effort, only=ids)
     last_year = int(days["date"].max().year) - len(E.partial_years(days))
     out = {}
     for name in names:
@@ -119,7 +119,8 @@ def transplant(target: pd.DataFrame, donor_year: int, ctx: dict) -> pd.DataFrame
         tgt = eff.get(r["date"], zero) if r["c"] > 0 else zero
         donor_date = r["date"].replace(year=donor_year)
         kept = np.minimum(tgt, eff.get(donor_date, zero))
-        p = ctx["profile"][int(np.clip(r["doy"], *P.PROFILE_DOY)) - P.PROFILE_DOY[0]]
+        doy = r["date"].dayofyear  # as `profile.coverage` indexes the profile
+        p = ctx["profile"][int(np.clip(doy, *P.PROFILE_DOY)) - P.PROFILE_DOY[0]]
         c_kept = float((p * kept).sum())
         birds_h = np.zeros(E.HOURS)
         if r["y"] > 0 and r["date"] in hourly:
@@ -448,7 +449,7 @@ def main(argv=None) -> int:
     print(f"Loaded {len(ctxs)} taxa; fitting...", flush=True)
     jobs = list(ctxs.items())
     if args.workers > 1:
-        with ProcessPoolExecutor(args.workers) as ex:
+        with T.worker_pool(args.workers) as ex:
             results = list(ex.map(run_taxon, jobs))
     else:
         results = [run_taxon(j) for j in jobs]

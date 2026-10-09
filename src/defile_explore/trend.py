@@ -27,6 +27,15 @@ the marginal likelihood (`fit`). Variants:
 - `season`: the season alone, a fixed phenology without trend or year effect, as the forecast's
   baseline has: the reference the GAM must beat.
 
+`trend` alone is not a change in abundance, nor `shift` alone a change in timing. The constraints
+hold on the log scale with every day of the window weighted equally, near-empty tails included:
+tails filling up raise `trend`, and `shift` lowers the peak to keep its mean at zero, so the two
+cancel in birds (Common Buzzard 1993-2025: `trend` x5.7, totals x0.8). Read abundance from the
+smooth total in birds (`annual_totals`, which keeps `shift`) and timing from the median passage
+date (`peak_doy`). Recentring `shift` on the passage-weighted mean after the fit gives a `trend` within
+0-9% of the totals' change, but a pure shift of the season still leaks into it, and moving that
+weighting into the fit would change what the penalties smooth (`DECISIONS.md` -> Explore).
+
 Beyond the data (a year not yet counted), the trend extrapolates its last slope: Explore never asks
 for it, and a forecast that did would need a flat extrapolation instead.
 
@@ -36,13 +45,16 @@ totals are calibrated by the benchmark's gap-transplant test.
 
 from __future__ import annotations
 
+import multiprocessing
+import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
 from scipy import optimize, sparse
 from scipy.interpolate import BSpline
-from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg import cho_factor, cho_solve, solve_triangular
 from scipy.special import gammaln
 
 from src.explore.export import COMBINED_RANK, HOURS, in_window
@@ -62,10 +74,13 @@ ETA_MAX = 20.0  # log birds per full-day equivalent; guards exp() in early IRLS 
 GAM_TREND_K = 12
 GAM_SEASON_K = 20
 GAM_SHIFT_K = (6, 8)  # year x doy
-GAM_EPISODE_K = 25  # per year, over the window's ~124 days: a knot every ~5 days
+# Per year, over the window's ~124 days: a knot every ~5.6 days, which (not the data) sets how long
+# an episode lasts; 15 is worse, 35 and 50 no better on totals (DECISIONS.md -> Explore).
+GAM_EPISODE_K = 25
 GAM_LOG_LAMBDA_BOUNDS = (-6.0, 16.0)
 LOG_LAMBDA_START = 2.0
 EFS_MAX_ITER = 100
+EFS_MAX_GAIN = 8.0  # longest step, in multiples of the plain update (`_efs`)
 THETA_ROUNDS = 5  # alternations of theta (marginal likelihood) and the smoothing parameters
 EFS_TOL = 1e-2  # largest change of a log smoothing parameter or log theta: 1%
 
@@ -87,15 +102,35 @@ IRLS_TOL = 1e-8
 DRAWS = 1000
 QUANTILES = (0.025, 0.1, 0.5, 0.9, 0.975)
 
+# One BLAS thread per worker (`worker_pool`): numpy's OpenBLAS otherwise starts one per core in every
+# worker, and a pool of one worker per core ran ~12x oversubscribed (load 110 on 12 cores).
+WORKER_THREAD_VARS = ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")
+
+
+def worker_pool(workers: int) -> ProcessPoolExecutor:
+    """A process pool for fitting taxa in parallel, each worker on one BLAS thread: the workers are
+    spawned (not forked, which would inherit the parent's threads) with `WORKER_THREAD_VARS`
+    set."""
+    for var in WORKER_THREAD_VARS:
+        os.environ[var] = "1"
+    return ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn"))
+
 
 # --- data -------------------------------------------------------------------
+
+
+def season_day(dates: pd.DatetimeIndex) -> np.ndarray:
+    """Day of year in a non-leap year, so that a calendar date has the same `doy` every year: with
+    `dayofyear`, every window day of a leap year was one day later in the season, `shift` and
+    `episode` than the same date in other years."""
+    return dates.dayofyear.to_numpy() - (dates.is_leap_year & (dates.month > 2))
 
 
 def model_frame(
     days: pd.DataFrame, effort: pd.DataFrame, c: pd.Series, first_year: int, last_year: int
 ) -> pd.DataFrame:
-    """One row per window day of `first_year`..`last_year`: `date`, `year`, `doy`, `c`, `y` and
-    `extra`.
+    """One row per window day of `first_year`..`last_year`: `date`, `year`, `doy` (`season_day`),
+    `c`, `y` and `extra`.
 
     Counted days (`state == "counted"`) carry their coverage `c` and count `y` (0 without a record);
     every other day, and a counted day with only a presence record, has `c = 0` and `y = 0`: nothing
@@ -104,7 +139,7 @@ def model_frame(
     """
     dates = pd.date_range(f"{first_year}-01-01", f"{last_year}-12-31", freq="D")
     dates = dates[in_window(pd.Series(dates)).to_numpy()]
-    f = pd.DataFrame({"date": dates, "year": dates.year, "doy": dates.dayofyear})
+    f = pd.DataFrame({"date": dates, "year": dates.year, "doy": season_day(dates)})
     counted = effort["state"] == "counted"
     f["c"] = f["date"].map(c[counted].set_axis(effort.loc[counted, "date"])).fillna(0.0)
     f["y"] = f["date"].map(days.set_index("date")["count"])
@@ -136,11 +171,21 @@ def difference_penalty(k: int, order: int = 2) -> np.ndarray:
 @dataclass
 class Block:
     """A model component: its columns in the design and its penalties, each a smoothing parameter's
-    name and the matrix it multiplies (the prior precision is their sum)."""
+    name and the matrix it multiplies (the prior precision is their sum).
+
+    With `groups` > 1 the columns are that many equal groups (`episode`: one per year), each with
+    the same penalties.
+    """
 
     name: str
     columns: slice
     penalties: list[tuple[str, np.ndarray]]
+    groups: int = 1
+
+    @property
+    def size(self) -> int:
+        """Columns of one group."""
+        return (self.columns.stop - self.columns.start) // self.groups
 
 
 @dataclass
@@ -159,19 +204,28 @@ class Design:
         return self.blocks[-1].columns.stop
 
     @property
+    def grouped(self) -> Block | None:
+        """The last block when it is grouped: its columns are kept per group (`Matrix`)."""
+        return self.blocks[-1] if self.blocks[-1].groups > 1 else None
+
+    @property
     def hyper_names(self) -> list[str]:
         return [name for b in self.blocks for name, _ in b.penalties]
 
     def block_precision(self, b: Block, h: dict) -> np.ndarray:
-        k = b.columns.stop - b.columns.start
-        return sum((np.exp(h[n]) * S for n, S in b.penalties), RIDGE * np.eye(k))
+        """Prior precision of one group of the block's columns."""
+        return sum((np.exp(h[n]) * S for n, S in b.penalties), RIDGE * np.eye(b.size))
 
-    def precision(self, h: dict) -> np.ndarray:
-        n = self.n_columns
-        Q = np.zeros((n, n))
+    def prior(self, h: dict) -> Prior:
+        g = self.grouped
+        split = g.columns.start if g else self.n_columns
+        Q = np.zeros((split, split))
         for b in self.blocks:
-            Q[b.columns, b.columns] = self.block_precision(b, h)
-        return Q
+            if b is not g:
+                Q[b.columns, b.columns] = self.block_precision(b, h)
+        return Prior(
+            Q, self.block_precision(g, h) if g else np.zeros((0, 0)), g.groups if g else 0
+        )
 
     def columns_of(self, *names: str) -> np.ndarray:
         """Indices of the named blocks' columns."""
@@ -196,11 +250,11 @@ def design(variant: str, years: np.ndarray, doy_range: tuple[int, int]) -> Desig
     parts, blocks = [], []
     col = 0
 
-    def add(name, basis, penalties):
+    def add(name, basis, penalties, groups=1):
         nonlocal col
         k = basis(np.array([y0]), np.array([d0])).shape[1]
         parts.append(basis)
-        blocks.append(Block(name, slice(col, col + k), penalties))
+        blocks.append(Block(name, slice(col, col + k), penalties, groups))
         col += k
 
     def centred(lo, hi, k, grid, order=2):
@@ -234,10 +288,8 @@ def design(variant: str, years: np.ndarray, doy_range: tuple[int, int]) -> Desig
         add(
             "episode",
             lambda y, d: _per_year(y - y0, n_years, episode(d)),
-            [
-                ("episode", np.kron(np.eye(n_years), Se)),
-                ("episode_size", np.eye(n_years * (GAM_EPISODE_K - 1))),
-            ],
+            [("episode", Se), ("episode_size", np.eye(GAM_EPISODE_K - 1))],
+            groups=n_years,
         )
 
     def basis(y, d):
@@ -281,45 +333,149 @@ def nb_loglik(y: np.ndarray, mu: np.ndarray, theta: float) -> np.ndarray:
 
 
 class Matrix:
-    """A design matrix kept as its dense columns and its sparse per-year `episode` columns (the
-    last block), so that X'WX, a product over ~4 000 rows by ~1 200 columns, costs the dense part
-    plus the episode's block diagonal."""
+    """The design at the observed rows, kept as its dense columns and, for a grouped last block
+    (`episode`, one group per year), each row's own group and that group's `k` values: a row of
+    `episode` is zero outside its year.
 
-    def __init__(self, X: sparse.csr_matrix, split: int):
+    X'WX is then a dense part, a cross term and a block diagonal (`information`), which `Factor`
+    solves by blocks.
+    """
+
+    def __init__(self, X: sparse.csr_matrix, split: int, groups: int):
+        n = X.shape[0]
+        self.split, self.groups = split, groups
         self.dense = X[:, :split].toarray()
-        self.sparse = X[:, split:].tocsr()
-        self.split = split
+        if groups:
+            Xg = X[:, split:].toarray().reshape(n, groups, -1)
+            self.group = np.abs(Xg).sum(axis=2).argmax(axis=1)
+            self.values = Xg[np.arange(n), self.group]  # (n, k)
+            self.rows = [np.flatnonzero(self.group == g) for g in range(groups)]
 
     def __matmul__(self, b: np.ndarray) -> np.ndarray:
-        return self.dense @ b[: self.split] + self.sparse @ b[self.split :]
+        out = self.dense @ b[: self.split]
+        if self.groups:
+            bg = b[self.split :].reshape(self.groups, -1)
+            out += (self.values * bg[self.group]).sum(axis=1)
+        return out
 
     def rmatvec(self, r: np.ndarray) -> np.ndarray:
-        return np.concatenate([self.dense.T @ r, self.sparse.T @ r])
+        top = self.dense.T @ r
+        if not self.groups:
+            return top
+        grouped = [self.values[i].T @ r[i] for i in self.rows]
+        return np.concatenate([top, np.concatenate(grouped)])
 
-    def information(self, w: np.ndarray) -> np.ndarray:
+    def information(self, w: np.ndarray) -> tuple:
+        """X'WX as `(A, C, D)`: the dense block, the cross terms per group `(G, k, p)` and the
+        diagonal blocks per group `(G, k, k)`."""
         dw = self.dense * w[:, None]
-        cross = np.asarray((self.sparse.T @ dw).T)
-        corner = (self.sparse.T @ self.sparse.multiply(w[:, None])).toarray()
-        return np.block([[self.dense.T @ dw, cross], [cross.T, corner]])
+        A = self.dense.T @ dw
+        if not self.groups:
+            return A, np.zeros((0, 0, len(A))), np.zeros((0, 0, 0))
+        C = np.stack([self.values[i].T @ dw[i] for i in self.rows])
+        D = np.stack([self.values[i].T @ (self.values[i] * w[i, None]) for i in self.rows])
+        return A, C, D
 
 
-def posterior_mode(X: Matrix, offset, y, Q, theta, beta):
+@dataclass
+class Prior:
+    """Prior precision: `dense` on the first columns, then `group` repeated `groups` times."""
+
+    dense: np.ndarray
+    group: np.ndarray
+    groups: int
+
+    def __matmul__(self, b: np.ndarray) -> np.ndarray:
+        p = len(self.dense)
+        top = self.dense @ b[:p]
+        if not self.groups:
+            return top
+        return np.concatenate([top, (b[p:].reshape(self.groups, -1) @ self.group).ravel()])
+
+    def logdet(self) -> float:
+        return _logdet(self.dense) + (self.groups * _logdet(self.group) if self.groups else 0.0)
+
+
+class Factor:
+    """H = [[A, C'], [C, blockdiag(D)]] (A the dense columns, D one block per group) by its blocks:
+    each D's Cholesky factor and the Schur complement S = A - C' D^-1 C. Solves, the
+    log-determinant, the diagonal blocks of H^-1 and draws then cost O(G k^3 + p^3) instead of
+    O((p + G k)^3): for 1993-2025 with 25 episode knots, 33 blocks of 24 and 99 columns against 891.
+    """
+
+    def __init__(self, A: np.ndarray, C: np.ndarray, D: np.ndarray):
+        self.p, self.G = len(A), len(D)
+        self.C = C
+        self.LD = np.linalg.cholesky(D) if self.G else D
+        self.DiC = np.linalg.solve(D, C) if self.G else C  # D^-1 C, (G, k, p)
+        S = A - C.reshape(-1, self.p).T @ self.DiC.reshape(-1, self.p)
+        self.LS = np.linalg.cholesky(S)
+
+    def _group_solve(self, e: np.ndarray) -> np.ndarray:
+        """D^-1 e per group, e `(G, k)`."""
+        return np.stack([cho_solve((L, True), v) for L, v in zip(self.LD, e)])
+
+    def solve(self, b: np.ndarray) -> np.ndarray:
+        a = b[: self.p]
+        if not self.G:
+            return cho_solve((self.LS, True), a)
+        Die = self._group_solve(b[self.p :].reshape(self.G, -1))
+        xa = cho_solve((self.LS, True), a - self.C.reshape(-1, self.p).T @ Die.ravel())
+        return np.concatenate([xa, (Die - self.DiC @ xa).ravel()])
+
+    def logdet(self) -> float:
+        d = 2 * np.log(np.diagonal(self.LS)).sum()
+        return d + (2 * np.log(np.diagonal(self.LD, axis1=1, axis2=2)).sum() if self.G else 0.0)
+
+    def inverse_blocks(self) -> tuple[np.ndarray, np.ndarray]:
+        """The dense block of H^-1 `(p, p)` and its diagonal blocks per group `(G, k, k)`."""
+        Si = cho_solve((self.LS, True), np.eye(self.p))
+        if not self.G:
+            return Si, np.zeros((0, 0, 0))
+        k = self.LD.shape[1]
+        Di = np.stack([cho_solve((L, True), np.eye(k)) for L in self.LD])
+        return Si, Di + (self.DiC @ Si) @ self.DiC.transpose(0, 2, 1)
+
+    def draws(self, z: np.ndarray) -> np.ndarray:
+        """`z` `(n_columns, n)` standard normal to draws of N(0, H^-1): with the groups ordered
+        first, H = L L' with L = [[LD, 0], [C' LD^-T, LS]], and x = L^-T z."""
+        xa = solve_triangular(self.LS, z[: self.p], lower=True, trans="T")
+        if not self.G:
+            return xa
+        ze = z[self.p :].reshape(self.G, -1, z.shape[1])
+        xe = [
+            solve_triangular(
+                L,
+                zg - solve_triangular(L, Cg @ xa, lower=True),
+                lower=True,
+                trans="T",
+            )
+            for L, Cg, zg in zip(self.LD, self.C, ze)
+        ]
+        return np.concatenate([xa, np.concatenate(xe)])
+
+
+def penalised_information(X: Matrix, w: np.ndarray, Q: Prior) -> Factor:
+    A, C, D = X.information(w)
+    return Factor(A + Q.dense, C, D + Q.group)
+
+
+def posterior_mode(X: Matrix, offset, y, Q: Prior, theta, beta):
     """Penalised IRLS (Fisher scoring with step halving) for the negative binomial log link:
 
-    `(beta, H, penalised log-likelihood)`, H the penalised expected information.
+    `(beta, H, penalised log-likelihood)`, H the penalised expected information (a `Factor`).
     """
 
     def objective(b):
         eta = np.minimum(offset + X @ b, ETA_MAX)
-        return nb_loglik(y, np.exp(eta), theta).sum() - 0.5 * b @ Q @ b
+        return nb_loglik(y, np.exp(eta), theta).sum() - 0.5 * b @ (Q @ b)
 
     current = objective(beta)
     for _ in range(IRLS_MAX_ITER):
         mu = np.exp(np.minimum(offset + X @ beta, ETA_MAX))
         w = mu * theta / (theta + mu)
         grad = X.rmatvec((y - mu) * theta / (theta + mu)) - Q @ beta
-        H = X.information(w) + Q
-        step = cho_solve(cho_factor(H), grad)
+        step = penalised_information(X, w, Q).solve(grad)
         for _ in range(30):
             new = objective(beta + step)
             if new >= current - 1e-10:
@@ -332,7 +488,7 @@ def posterior_mode(X: Matrix, offset, y, Q, theta, beta):
             break
     mu = np.exp(np.minimum(offset + X @ beta, ETA_MAX))
     w = mu * theta / (theta + mu)
-    return beta, X.information(w) + Q, current
+    return beta, penalised_information(X, w, Q), current
 
 
 @dataclass
@@ -340,7 +496,7 @@ class Fit:
     design: Design
     hyper: dict
     beta: np.ndarray
-    H: np.ndarray
+    H: Factor
     log_marginal: float
 
     @property
@@ -349,9 +505,8 @@ class Fit:
 
     def draws(self, n: int, rng: np.random.Generator) -> np.ndarray:
         """Posterior draws of the coefficients, `(n, k)`."""
-        L = np.linalg.cholesky(self.H)
         z = rng.standard_normal((len(self.beta), n))
-        return self.beta + np.linalg.solve(L.T, z).T
+        return self.beta + self.H.draws(z).T
 
 
 def _logdet(A: np.ndarray) -> float:
@@ -359,29 +514,44 @@ def _logdet(A: np.ndarray) -> float:
 
 
 def _laplace(design, X, offset, y, h, beta):
-    Q = design.precision(h)
+    Q = design.prior(h)
     beta, H, pll = posterior_mode(X, offset, y, Q, np.exp(h["theta"]), beta)
-    log_marginal = pll + 0.5 * _logdet(Q) - 0.5 * _logdet(H)
+    log_marginal = pll + 0.5 * Q.logdet() - 0.5 * H.logdet()
     return log_marginal, beta, H
 
 
 def _efs(d: Design, X, offset, y, hyper: dict, beta, theta_ml: bool):
     """Fellner-Schall iterations of the smoothing parameters to convergence, `theta` fixed or (with
-    `theta_ml`) its maximum likelihood given the fitted means after each update."""
+    `theta_ml`) its maximum likelihood given the fitted means after each update.
+
+    Two departures from the plain update, neither of which moves its fixed point: a step in the
+    same direction as the last is lengthened (x2 each time, up to `EFS_MAX_GAIN`), so that a
+    parameter heading for a bound gets there in a few iterations rather than tens; and a penalty
+    that leaves its smooth less than `EFS_TOL` degrees of freedom (`lambda * room`: a fully
+    penalised trend, a straight line) has converged whatever its `lambda` does, which near the
+    upper bound is a ratio of two vanishing numbers and oscillates.
+    """
+    gain, last = dict.fromkeys(hyper, 1.0), dict.fromkeys(hyper, 0.0)
     for _ in range(EFS_MAX_ITER):
-        beta, H, _ = posterior_mode(X, offset, y, d.precision(hyper), np.exp(hyper["theta"]), beta)
-        H_inv = cho_solve(cho_factor(H), np.eye(len(beta)))
-        new = dict(hyper)
+        beta, H, _ = posterior_mode(X, offset, y, d.prior(hyper), np.exp(hyper["theta"]), beta)
+        dense_inv, group_inv = H.inverse_blocks()
+        new, change = dict(hyper), 0.0
         for b in d.blocks:
             if not b.penalties:
                 continue
             Q_inv = np.linalg.inv(d.block_precision(b, hyper))
-            Hb, bb = H_inv[b.columns, b.columns], beta[b.columns]
+            bb = beta[b.columns].reshape(b.groups, b.size)
+            Hb = group_inv if b.groups > 1 else dense_inv[None, b.columns, b.columns]
             for name, S in b.penalties:
-                room = np.sum(Q_inv * S) - np.sum(Hb * S)  # tr(Q^-1 S) - tr(H^-1 S)
-                wiggle = bb @ S @ bb
+                # tr(Q^-1 S) - tr(H^-1 S), over every group
+                room = b.groups * np.sum(Q_inv * S) - np.sum(Hb * S)
+                wiggle = np.sum((bb @ S) * bb)
                 step = np.log(max(room, 1e-12) / max(wiggle, 1e-12))
-                new[name] = float(np.clip(hyper[name] + step, *GAM_LOG_LAMBDA_BOUNDS))
+                gain[name] = min(2 * gain[name], EFS_MAX_GAIN) if step * last[name] > 0 else 1.0
+                last[name] = step
+                new[name] = float(np.clip(hyper[name] + gain[name] * step, *GAM_LOG_LAMBDA_BOUNDS))
+                if np.exp(hyper[name]) * room >= EFS_TOL:
+                    change = max(change, abs(new[name] - hyper[name]))
         if theta_ml:
             mu = np.exp(np.minimum(offset + X @ beta, ETA_MAX))
             new["theta"] = float(
@@ -391,7 +561,7 @@ def _efs(d: Design, X, offset, y, hyper: dict, beta, theta_ml: bool):
                     method="bounded",
                 ).x
             )
-        change = max(abs(new[k] - hyper[k]) for k in hyper)
+            change = max(change, abs(new["theta"] - hyper["theta"]))
         hyper = new
         if change < EFS_TOL:
             break
@@ -412,8 +582,12 @@ def fit(variant: str, frame: pd.DataFrame, years: np.ndarray, doy_range, hyper=N
     """
     d = design(variant, years, doy_range)
     obs = frame[frame["c"] > 0]
-    episode = [b.columns.start for b in d.blocks if b.name == "episode"]
-    X = Matrix(d.X(obs["year"].to_numpy(), obs["doy"].to_numpy()), (episode or [d.n_columns])[0])
+    g = d.grouped
+    X = Matrix(
+        d.X(obs["year"].to_numpy(), obs["doy"].to_numpy()),
+        g.columns.start if g else d.n_columns,
+        g.groups if g else 0,
+    )
     offset = np.log(obs["c"].to_numpy())
     y = obs["y"].to_numpy(float)
     beta = np.zeros(d.n_columns)
@@ -579,6 +753,23 @@ def season_curve(f: Fit, year: int, n: int = 400, seed: int = 0) -> pd.DataFrame
     return pd.DataFrame({"doy": doy, "lo": q[0], "mid": q[1], "hi": q[2]})
 
 
+def episode_curves(f: Fit, years: np.ndarray) -> dict:
+    """Each year's season with and without its weather episodes, at the posterior mode: `base`,
+
+    expected birds per full day without the episodes (trend, year level, season and shift), and
+    `episode`, the episodes' log multiplier, so that `base * exp(episode)` is the full fit.
+    """
+    doy = np.arange(f.design.doy_range[0], f.design.doy_range[1] + 1)
+    base, episode = {}, {}
+    for yr in years:
+        yd = (np.full(len(doy), yr), doy)
+        full = eta_draws(f, *yd, f.beta[None])[0]
+        without = eta_draws(f, *yd, f.beta[None], without=("episode",))[0]
+        base[str(yr)] = np.round(np.exp(without), 1)
+        episode[str(yr)] = np.round(full - without, 3)
+    return {"doy": doy, "base": base, "episode": episode}
+
+
 def peak_doy(f: Fit, years: np.ndarray, n: int = 400, seed: int = 0) -> pd.DataFrame:
     """Median passage date per year (the day by which half the season's birds have passed), of
     the smooth season: without the year's weather episodes."""
@@ -620,7 +811,8 @@ def taxon_trend(
     share counted, and the smooth expected total (trend without the year's level and weather
     episodes, every hour counted) with its 95% band. `passage`: the smooth season's median passage
     date (day of year, 80% band). `season`: expected birds per full day on each day of year,
-    smooth, in the first and the last year.
+    smooth, in the first and the last year. `episodes`: every year's season with and without its
+    weather episodes (`episode_curves`).
     """
     frame = model_frame(days, effort, coverage(effort, profile), first_year, last_year)
     years = np.arange(first_year, last_year + 1)
@@ -644,4 +836,5 @@ def taxon_trend(
         "annual": a,
         "passage": peak_doy(f, years, seed=seed),
         "season": {"doy": np.arange(doy_range[0], doy_range[1] + 1), **curves},
+        "episodes": episode_curves(f, years) if variant == "gam" else None,
     }

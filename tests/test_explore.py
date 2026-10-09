@@ -427,7 +427,7 @@ def _synthetic_frame(trend: float, seed: int = 0) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     dates = pd.date_range("2005-01-01", "2016-12-31")
     dates = dates[E.in_window(pd.Series(dates)).to_numpy()]
-    f = pd.DataFrame({"date": dates, "year": dates.year, "doy": dates.dayofyear})
+    f = pd.DataFrame({"date": dates, "year": dates.year, "doy": T.season_day(dates)})
     mu = np.exp(3 + trend * (f["year"] - 2005) - ((f["doy"] - 260) / 20) ** 2 / 2)
     f["c"] = np.where(rng.random(len(f)) < 0.5, 1.0, 0.5)
     f["y"] = rng.negative_binomial(2, 2 / (2 + mu * f["c"])).astype(float)
@@ -487,6 +487,36 @@ def test_smooths_sum_to_zero_over_their_grid():
         per_year = X[:, cols].reshape(12, 121, -1).sum(axis=1)  # over each season's days
         total = per_year.sum(axis=0)
         assert np.abs(per_year if name == "episode" else total).max() < 1e-8, name
+
+
+def test_season_day_ignores_leap_years():
+    dates = pd.to_datetime(["2023-09-01", "2024-09-01", "2024-02-28", "2024-02-29"])
+    assert T.season_day(dates).tolist() == [244, 244, 59, 60]
+
+
+def test_block_factor_matches_dense_algebra():
+    """`Factor` (episode blocks by Schur complement) against the dense H it stands for."""
+    rng = np.random.default_rng(0)
+    p, G, k = 5, 4, 3
+    M = rng.standard_normal((p + G * k, 40))
+    H = M @ M.T + np.eye(p + G * k)
+    blocks = [slice(p + g * k, p + (g + 1) * k) for g in range(G)]
+    for a in range(G):  # the groups do not interact
+        for b in range(G):
+            if a != b:
+                H[blocks[a], blocks[b]] = 0
+    C = np.stack([H[s, :p] for s in blocks])
+    D = np.stack([H[s, s] for s in blocks])
+    F = T.Factor(H[:p, :p], C, D)
+    b = rng.standard_normal(p + G * k)
+    assert np.allclose(F.solve(b), np.linalg.solve(H, b))
+    assert F.logdet() == pytest.approx(np.linalg.slogdet(H)[1])
+    H_inv = np.linalg.inv(H)
+    dense, group = F.inverse_blocks()
+    assert np.allclose(dense, H_inv[:p, :p])
+    assert all(np.allclose(group[g], H_inv[s, s]) for g, s in enumerate(blocks))
+    x = F.draws(np.eye(p + G * k))  # x x' = H^-1 when z is the identity
+    assert np.allclose(x @ x.T, H_inv)
 
 
 @pytest.mark.parametrize("kappa", [2.0, 50.0])
