@@ -55,3 +55,7 @@ tests/
 ```
 
 `DECISIONS.md` records what was decided and why, `DEVELOPMENT.md` what is still open.
+
+## License
+
+Code: [MIT](LICENSE). The counts belong to the defile-dataset release, which has its own terms.
