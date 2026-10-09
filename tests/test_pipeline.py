@@ -1,0 +1,181 @@
+"""Tests for the per-taxon blocks (season, daytime, demography, settings, key numbers), on small
+synthetic tables."""
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from defile_explore import daytime as Y
+from defile_explore import demography as G
+from defile_explore import pipeline as L
+from defile_explore import season as S
+from defile_explore import settings as X
+from defile_explore.profile import PROFILE_DOY
+
+
+def frame(rates: dict, c: float = 1.0) -> pd.DataFrame:
+    """A `model_frame`-like table: {year: [birds per day over doy 200..]}; NaN = not counted."""
+    rows = []
+    for year, birds in rates.items():
+        for i, b in enumerate(birds):
+            counted = not np.isnan(b)
+            rows.append(
+                {
+                    "year": year,
+                    "doy": 200 + i,
+                    "c": c if counted else 0.0,
+                    "y": b if counted else 0,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+# --- season ------------------------------------------------------------------------------------
+
+
+def test_passage_quantiles_of_a_flat_season_are_evenly_spaced():
+    q = S.cumulative_quantiles(np.arange(100), np.ones(100))
+    assert q == pytest.approx([9, 49, 89], abs=1)
+
+
+def test_daily_rates_divide_by_coverage_and_fill_gaps_between_counted_days():
+    f = frame({2020: [10, np.nan, 30]}, c=0.5)
+    rate, filled = S.daily_rates(f)
+    assert rate.loc[2020].tolist()[0] == 20 and np.isnan(rate.loc[2020].tolist()[1])
+    assert filled.loc[2020].tolist() == [20, 40, 60]
+
+
+def test_a_day_below_the_coverage_threshold_is_not_counted():
+    f = frame({2020: [10, 10]}, c=0.3)
+    rate, _ = S.daily_rates(f)
+    assert rate.isna().all().all()
+
+
+def test_season_shares_sum_to_one_where_every_day_is_counted():
+    b = S.season_block(frame({2020: [1, 2, 3, 4], 2021: [4, 3, 2, 1]}), 2021)
+    assert np.nansum(b["share"], axis=1) == pytest.approx([1, 1])
+    assert b["passage"]["counted"].tolist() == [1, 1]
+
+
+def test_chances_count_days_reaching_each_threshold():
+    birds = [0, 5, 50, 500] * 5  # 20 days: a quarter at each level
+    ch = S.chances(frame({2020: birds}), 2020)
+    days = np.asarray(ch["days"])
+    at1 = (np.asarray(ch["at_least_1"]) * days).sum() / days.sum()
+    assert at1 == pytest.approx(0.75)
+    assert "at_least_1000" not in ch
+
+
+# --- daytime -----------------------------------------------------------------------------------
+
+
+def test_hour_rates_divide_birds_by_the_hours_counted():
+    dates = pd.to_datetime(["2020-09-01", "2020-09-02"])
+    effort = np.zeros((2, 24))
+    effort[0, 10:12] = 1  # day 1: 10-12 counted
+    effort[1, 10] = 1  # day 2: 10 only
+    sample = pd.DataFrame({"date": dates, "hourly": list(effort)})
+    hourly = pd.DataFrame({"date": dates[[0, 0, 1]], "hour": [10, 11, 10], "count": [4, 6, 2]})
+    birds, hours = Y.hour_rates(hourly, sample, pd.Series([0, 0]))
+    rate = birds.iloc[0] / hours.iloc[0]
+    assert rate[10] == 3 and rate[11] == 6
+
+
+# --- demography --------------------------------------------------------------------------------
+
+
+def demo_rows(year: int, codes: dict, field: str = "age") -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "date": pd.Timestamp(f"{year}-09-15"),
+            "count": list(codes.values()),
+            "age": list(codes) if field == "age" else None,
+            "sex": list(codes) if field == "sex" else None,
+        }
+    )
+
+
+def test_wilson_interval_matches_the_textbook_value():
+    lo, hi = G.wilson(5, 10)
+    assert (round(float(lo), 3), round(float(hi), 3)) == (0.237, 0.763)
+
+
+def test_non_adult_codes_are_one_class():
+    rows = pd.concat([demo_rows(y, {"1": 10, "I": 20, "A": 30}) for y in (2020, 2021, 2022)])
+    counted = pd.Series(100.0, index=[2020, 2021, 2022])
+    b = G.age_block(rows, counted, [2020, 2021, 2022])
+    assert b["share"].tolist() == [0.5, 0.5, 0.5]
+    assert b["overall"]["aged"] == 180
+
+
+def test_years_need_enough_birds_aged_and_enough_years():
+    rows = pd.concat([demo_rows(2020, {"A": 50}), demo_rows(2021, {"A": 5})])
+    counted = pd.Series([100.0, 100.0], index=[2020, 2021])
+    assert G.usable_years(rows, "age", counted) == []  # one usable year, MIN_YEARS needed
+    rows = pd.concat([demo_rows(y, {"A": 50}) for y in (2020, 2021, 2022)])
+    assert G.usable_years(rows, "age", pd.Series(100.0, index=[2020, 2021, 2022])) == [
+        2020,
+        2021,
+        2022,
+    ]
+
+
+# --- settings ----------------------------------------------------------------------------------
+
+
+def write_overrides(tmp_path, text: str) -> str:
+    path = tmp_path / "overrides.yaml"
+    path.write_text(text)
+    return str(path)
+
+
+def test_an_override_without_a_reason_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="reason"):
+        X.load_overrides(write_overrides(tmp_path, "t1: {start_year: 2007}"))
+
+
+def test_an_unknown_setting_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="unknown"):
+        X.load_overrides(write_overrides(tmp_path, "t1: {window: 3, reason: x}"))
+
+
+def test_links_need_no_reason(tmp_path):
+    o = X.load_overrides(write_overrides(tmp_path, "t1: {links: {vogelwarte: red-kite}}"))
+    assert o["t1"]["links"]["vogelwarte"] == "red-kite"
+
+
+def taxon(**kw) -> dict:
+    return {
+        "taxon_id": "t1",
+        "tier": "full",
+        "taxon_rank": "species",
+        "start_year": 1993,
+        "scientific_name": "Milvus milvus",
+        "ebird_code": "redkit1",
+        "trektellen_species_id": 101.0,
+    } | kw
+
+
+def test_overrides_win_over_rules_and_say_so():
+    rows = pd.concat([demo_rows(y, {"M": 3}, "sex") for y in (2001, 2005, 2030)])
+    o = {"t1": {"start_year": 2007, "sex_years": {"from": 2002}, "reason": "test"}}
+    s, links = X.resolve(taxon(), rows, pd.Series(dtype=float), o, last_year=2025)
+    assert s["start_year"].as_dict() == {"value": 2007, "source": "override", "reason": "test"}
+    assert s["sex_years"].value == [2005]  # 2030 is after the last complete season
+    assert s["trend"].source == "rule" and s["trend"].value is True
+    assert links["ebba2"].endswith("/Milvus-milvus/ebba2/occurrence/")
+    assert "/2422/101/" in links["trektellen"]
+
+
+def test_no_trend_below_the_full_tier():
+    s, _ = X.resolve(taxon(tier="short"), demo_rows(2020, {}), pd.Series(dtype=float), {}, 2025)
+    assert s["trend"].value is False
+
+
+# --- key numbers -------------------------------------------------------------------------------
+
+
+def test_best_hours_are_the_fewest_holding_the_share():
+    profile = np.zeros((PROFILE_DOY[1] - PROFILE_DOY[0] + 1, 24))
+    profile[:, 10], profile[:, 11], profile[:, 12] = 0.5, 0.3, 0.2
+    assert L.best_hours(profile, 250) == {"from": 10, "to": 12, "share": 0.8}

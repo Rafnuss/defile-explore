@@ -31,7 +31,17 @@ for the user, logged in the table in `DECISIONS.md` -> Repository.
 defileViz (`src/services/explore.js`, `src/components/explore/`) reads `taxa.json` and
 `species/<taxon_id>.json`, including `trend.annual`, `trend.passage`, `trend.season`,
 `trend.episodes`, `trend.theta`, `trend.kappa`, `profile` and `days`. Renaming or reshaping a
-field breaks the page: change both repos together.
+field breaks the page: change both repos together. The blocks added by `pipeline.build_taxon`
+(`season`, `daytime`, `age`, `sex`, `records`, `key_numbers`, `settings`, `links`,
+`diagnostics`) are not read by defileViz yet; `scripts/explore_viewer.py` draws all of them and is
+where a block is checked first. Each block names its `method` (`name@version`): bump the version
+when what the block means changes.
+
+## Per-taxon settings
+
+Every setting has a rule (`settings.py`). Fix a wrong value by improving the rule when it can be
+done for all taxa; otherwise add an exception to `src/defile_explore/overrides.yaml`, with a
+`reason`. Never special-case a taxon in code.
 
 ## Conventions
 
@@ -45,6 +55,9 @@ field breaks the page: change both repos together.
 - `data/` and `logs/` are generated: never commit them. The release is copied into
   `data/count/dataset/` by `scripts/build_explore.py --dataset <dir>`.
 - Builds are verbose (pygam warnings, per-taxon progress): redirect to `logs/` and grep.
+- `data/cache/` holds the shared stage and each taxon's trend fit, keyed by the release and by
+  the source code of the modules that made them, so a code change invalidates them by itself.
+  `--no-cache` ignores them; deleting the folder is always safe.
 
 ## Environment gotcha
 

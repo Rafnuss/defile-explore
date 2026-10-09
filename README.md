@@ -31,9 +31,12 @@ uv run pytest
 # copy a defile-dataset release into data/count/dataset/, then build data/explore/
 uv run python scripts/build_explore.py --dataset ../defile-dataset/output
 
-# rebuild from the copied release; --skip-trend for a build without the GAM (seconds)
+# rebuild from the copied release (cached: seconds when only a block changed)
 uv run python scripts/build_explore.py
-uv run python scripts/build_explore.py --out ../defileViz/public/data/explore
+uv run python scripts/build_explore.py --taxa "Red Kite" "Hen Harrier"   # only these taxa
+
+# QA viewer: logs/viewer/index.html, every full-tier taxon with all its panels
+uv run python scripts/explore_viewer.py
 ```
 
 `data/` and `logs/` are generated and never committed.
@@ -47,8 +50,14 @@ src/defile_explore/
   timeofday.py   the time-of-day GAM
   profile.py     effort adjustment: time-of-day profile, coverage, annual index
   trend.py       the trend GAM: smooth trend, season, timing shift, gap-filled totals
+  pipeline.py    the build: a cached shared stage, then build_taxon (all blocks of one taxon)
+  settings.py    per-taxon settings by rule; overrides.yaml holds the exceptions, with reasons
+  season.py      the season as counted: daily heatmap, passage dates, chances
+  daytime.py     passage through the day, as counted
+  demography.py  age and sex
 scripts/
   build_explore.py           the export
+  explore_viewer.py          QA viewer of the export (HTML, Plotly)
   benchmark_trend.py         gap-filling benchmark of the trend model (PDF + CSV)
   analyse_explore_effort.py  comparison of effort normalisations (PDF)
 tests/

@@ -101,6 +101,7 @@ IRLS_MAX_ITER = 100
 IRLS_TOL = 1e-8
 DRAWS = 1000
 QUANTILES = (0.025, 0.1, 0.5, 0.9, 0.975)
+PASSAGE_QUANTILES = (0.1, 0.5, 0.9)  # passage dates: 10%, half and 90% of the season passed
 
 # One BLAS thread per worker (`worker_pool`): numpy's OpenBLAS otherwise starts one per core in every
 # worker, and a pool of one worker per core ran ~12x oversubscribed (load 110 on 12 cores).
@@ -791,6 +792,18 @@ def peak_doy(f: Fit, years: np.ndarray, n: int = 400, seed: int = 0) -> pd.DataF
     return pd.DataFrame(rows)
 
 
+def passage_quantiles(f: Fit, years: np.ndarray, qs=PASSAGE_QUANTILES) -> pd.DataFrame:
+    """Day of year by which each share `qs` of the smooth season (without the year's level and
+    weather episodes) has passed, per year, at the posterior mode: interpolated between days."""
+    doy = np.arange(f.design.doy_range[0], f.design.doy_range[1] + 1)
+    rows = []
+    for yr in years:
+        mu = np.exp(eta_draws(f, np.full(len(doy), yr), doy, f.beta[None], without=SMOOTH))[0]
+        cum = np.cumsum(mu) / mu.sum()
+        rows.append([yr, *(float(np.interp(q, cum, doy)) for q in qs)])
+    return pd.DataFrame(rows, columns=["year", *(f"q{round(q * 100)}" for q in qs)]).round(1)
+
+
 # --- export -----------------------------------------------------------------
 
 
@@ -810,9 +823,10 @@ def taxon_trend(
     `annual`: per year, birds counted, the gap-filled total (median and 80%/95% intervals), the
     share counted, and the smooth expected total (trend without the year's level and weather
     episodes, every hour counted) with its 95% band. `passage`: the smooth season's median passage
-    date (day of year, 80% band). `season`: expected birds per full day on each day of year,
-    smooth, in the first and the last year. `episodes`: every year's season with and without its
-    weather episodes (`episode_curves`).
+    date (day of year, 80% band). `passage_q`: the smooth season's 10/50/90% passage dates
+    (`passage_quantiles`). `season`: expected birds per full day on each day of year, smooth, in
+    the first and the last year. `episodes`: every year's season with and without its weather
+    episodes (`episode_curves`).
     """
     frame = model_frame(days, effort, coverage(effort, profile), first_year, last_year)
     years = np.arange(first_year, last_year + 1)
@@ -835,6 +849,7 @@ def taxon_trend(
         "kappa": kappa,
         "annual": a,
         "passage": peak_doy(f, years, seed=seed),
+        "passage_q": passage_quantiles(f, years),
         "season": {"doy": np.arange(doy_range[0], doy_range[1] + 1), **curves},
         "episodes": episode_curves(f, years) if variant == "gam" else None,
     }

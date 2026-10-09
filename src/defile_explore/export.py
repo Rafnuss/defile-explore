@@ -26,6 +26,9 @@ Files, written by `scripts/build_explore.py` (one `build_*` function each):
   full-tier species and combined series, `trend` (`defile_explore.trend.taxon_trend`): gap-filled
   annual totals with intervals, the smooth trend, the median passage date per year, the smooth
   season in the first and last year, and each year's season with and without its weather episodes.
+  `defile_explore.pipeline.build_taxon` adds the blocks derived from the same data and fit
+  (`settings`, `links`, `key_numbers`, `season`, `daytime`, `age`, `sex`, `records`,
+  `diagnostics`); each of those modules documents its block.
 - `reports.json`: the report texts that are not about one species (site, monitoring, weather,
   results, outreach).
 
@@ -490,6 +493,12 @@ def manifest(metadata: dict, days: pd.DataFrame, effort: pd.DataFrame, git_sha: 
 
 
 def _value(v):
+    if isinstance(v, pd.DataFrame):
+        return records(v)
+    if isinstance(v, (pd.Index, pd.Series)):
+        return _value(v.to_numpy())
+    if isinstance(v, np.bool_):
+        return bool(v)
     if v is None or (isinstance(v, float) and np.isnan(v)) or v is pd.NaT:
         return None
     if isinstance(v, pd.Timestamp):

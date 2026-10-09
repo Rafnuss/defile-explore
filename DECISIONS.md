@@ -217,3 +217,58 @@ at the peak), and with 11 target years an 80% coverage of 0.70 is within one sta
 Across the 74 exported trends, `trend` is at its upper bound (a straight line on the log scale)
 for 27 and `shift_year` (timing constant over the years) for 26: the year levels take the
 multi-year waves, which the marginal likelihood prefers.
+
+## Pipeline
+
+**One function per taxon builds every block, from one fit (2026-10-09).** `pipeline.build_taxon`
+takes a taxon's slice of a shared stage (release, effort, daily and hourly counts, profiles, age
+and sex rows) and returns its species file: the raw tables, the trend GAM, and the blocks derived
+from them (`season`, `daytime`, `age`, `sex`, `records`, `key_numbers`, `diagnostics`). Nothing
+refits a model to draw a panel; a prototype that did (six species, every candidate panel) fixed
+which blocks exist. The viewer (`scripts/explore_viewer.py`) only draws the export, so what it
+shows is what defileViz would get.
+
+**Settings by rule, exceptions by hand with a reason.** About 90 taxa get a full page and 74 a
+trend, too many to configure one by one. Every setting has a rule (`settings.py`); a wrong value
+is fixed by a better rule where possible, else by an entry in `overrides.yaml`, which refuses an
+override without a `reason`. The species file records each value's source. Links follow the
+same scheme: eBird, Birds of the World, EBBA2 and Trektellen by rule from the taxonomy's codes;
+pages without a code to build them from (Vogelwarte, Migration Atlas) only by hand.
+
+**Caches keyed by content, not by flags.** The shared stage is cached per release (file names,
+sizes, times) and per source code of the modules that compute it; each trend fit per hash of the
+taxon's data, profile, years and `trend.py`'s source. A code change invalidates exactly what it
+touches, without remembering to clear anything. A rebuild after a change to a derived block takes
+seconds (four taxa: 5 s instead of ~2 min), so a `--only <block>` option was not needed. A cold
+build of all 273 taxa (74 trends) takes ~3 min on 12 cores: 109 s of shared stage, mostly the
+time-of-day profiles, then 63 s for the taxa.
+
+**Blocks name their method and version** (`season@1`, `trend-gam@1`, ...): defileViz's method
+page will have one section per method, and a version bump says that what a block means changed.
+
+**The season as counted: shares of each year's birds per day, gaps filled only for the total.** A
+day's rate is birds per full counted day (`y / c`, not below `COVERAGE_MIN`); its share divides by
+the year's total, where uncounted days are linearly interpolated between counted ones. The cells
+shown are counted days only. Each year's 10/50/90% passage dates come from the same filled
+series, with the share of the window counted, so the viewer can fade years with long gaps. The
+smooth dates (the GAM's season without the year's level and episodes, `trend.passage_quantiles`)
+are drawn over them.
+
+**Time of day: birds per counted hour, pooled over the days of a period.** Only days with birds
+and at least `PROFILE_MIN_TIMED` of them timed (the profile's own sample), so hours counted less
+often weigh less, not zero; an hour counted under 3 h in a period, or a period with under 30 timed
+birds, is not shown. Early, peak and late are between the 10/35/65/90% passage dates of the
+smooth season (or the pooled counted seasons without a trend).
+
+**Age and sex: shares among the birds given one, only in usable years.** A year is usable with at
+least 20 birds aged (or sexed) and 5% of those counted, and a taxon needs 3 such years. The age
+codes `1`, `J`, `I`, `2` are one class, non-adult: the codes used switch between years (Red Kite:
+mostly `1` in 2019, `I` in 2022). Every share has a 95% Wilson interval; a pooled share over the
+usable years is given too. Whether aged birds represent those passing is not checked: Red Kite
+comes out 97% non-adult, dominated by 2024-2025, when many juveniles were aged.
+
+**Key numbers** are read from the blocks, not computed apart: the main passage is the smooth
+season's 10-90% in the last year (else the pooled counted seasons of the last 10), best hours the
+fewest clock hours holding 60% of the profile on the median passage day, the typical season the
+median of the last 10 gap-filled totals, the trend the smooth's change from the start year, the
+chance the share of well-counted days in the main passage with at least 1 or 10 birds.

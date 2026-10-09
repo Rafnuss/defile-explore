@@ -1,0 +1,12 @@
+# Per-taxon exceptions to the rules in settings.py. Keep this file short: prefer fixing a rule.
+#
+# Keyed by taxon_id, with the English name as a comment. Settings: start_year, trend,
+# age_years, sex_years (a list of years, or {from: Y} / {from: Y, to: Z}). Each needs a
+# `reason`. `links` (vogelwarte: page slug, migration_atlas: node id) need none.
+#
+# Example:
+#   avibase-F558C7F9: # Hen Harrier
+#     sex_years: { from: 2001 }
+#     reason: "sexed systematically since 2001 (report)"
+#     links: { vogelwarte: hen-harrier }
+{}
