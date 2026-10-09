@@ -31,6 +31,7 @@ from defile_explore import demography as G
 from defile_explore import export as E
 from defile_explore import profile as P
 from defile_explore import release as R
+from defile_explore import remarks as M
 from defile_explore import season as S
 from defile_explore import settings as X
 from defile_explore import timeofday
@@ -58,7 +59,7 @@ def release_key(data_dir: str) -> str:
     for f in sorted(os.listdir(folder)):
         st = os.stat(os.path.join(folder, f))
         h.update(f"{f}:{st.st_size}:{st.st_mtime_ns}".encode())
-    h.update(_source_hash(R, E, P, timeofday).encode())
+    h.update(_source_hash(R, E, P, M, timeofday).encode())
     return h.hexdigest()[:12]
 
 
@@ -74,6 +75,7 @@ class Shared:
     profiles: dict
     source: pd.Series
     demography: pd.DataFrame
+    remarks: pd.DataFrame
     last_year: int
 
 
@@ -108,6 +110,7 @@ def load_shared(data_dir: str, ebird: pd.DataFrame, use_cache: bool = True) -> S
         profiles=profiles,
         source=source,
         demography=demo.astype({"age": "string", "sex": "string"}),
+        remarks=M.day_remarks(surveys, counts),
         last_year=int(days["date"].max().year) - len(E.partial_years(days)),
     )
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -142,6 +145,9 @@ def taxon_jobs(
             "profile_source": src,
             "accounts": A.taxon_rows(accounts, taxon_id),
             "demography": shared.demography[shared.demography["taxon_id"].isin(members)],
+            "remarks": shared.remarks[
+                shared.remarks["taxon_id"].isna() | shared.remarks["taxon_id"].isin(members)
+            ],
             "overrides": overrides,
             "last_year": shared.last_year,
             "cache": os.path.join(data_dir, CACHE_DIR, "trend") if use_cache else None,
@@ -206,9 +212,12 @@ def trend_block(job: dict, start: int, window: tuple[int, int]) -> dict:
 # --- derived blocks ---------------------------------------------------------------------------
 
 
-def records_block(days: pd.DataFrame) -> dict:
-    top = days.dropna(subset=["count"]).nlargest(RECORD_DAYS, "count")
-    return {"method": "records@1", "top_days": top[["date", "count", "c"]]}
+def records_block(days: pd.DataFrame, remarks: pd.DataFrame) -> dict:
+    """The `RECORD_DAYS` days with the most birds, all years, with what was written about each
+    (`remarks.notes_of`)."""
+    top = days.dropna(subset=["count"]).nlargest(RECORD_DAYS, "count")[["date", "count"]]
+    top["notes"] = [M.notes_of(remarks, d) for d in top["date"]]
+    return {"method": "records@2", "top_days": top}
 
 
 def best_hours(profile: np.ndarray, doy: float) -> dict:
@@ -355,7 +364,7 @@ def build_taxon(job: dict) -> tuple[str, dict]:
     )
     age = G.age_block(job["demography"], counted, settings["age_years"].value)
     sex = G.sex_block(job["demography"], counted, settings["sex_years"].value)
-    records = records_block(d)
+    records = records_block(d, job["remarks"])
     return taxon_id, {
         "taxon_id": taxon_id,
         "settings": {k: v.as_dict() for k, v in settings.items()},

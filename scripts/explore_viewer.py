@@ -3,6 +3,10 @@
 taxon with every block drawn (Plotly). It reads `data/explore/` only and computes nothing, so what
 it shows is what defileViz gets; a panel that needs a calculation here belongs in the pipeline.
 
+A developer's tool, focused on the model output: show everything that helps judge a fit, in full
+detail. The visitors' page is defileViz's, trimmed and narrative; it does not have to look like
+this one.
+
 Usage:
     python scripts/explore_viewer.py                    # -> logs/viewer/index.html + one page per taxon
     python scripts/explore_viewer.py --taxa "Red Kite"  # only these pages (and the index)
@@ -53,6 +57,8 @@ ul.rep{max-height:320px;overflow:auto;font-size:13px}
 table{border-collapse:collapse;font-size:13px;width:100%}
 td,th{border-bottom:1px solid #eee;padding:3px 6px;text-align:left}
 td.n{text-align:right}
+p.rn{margin:2px 0;font-size:12px;max-height:120px;overflow:auto}
+td{vertical-align:top}
 """
 
 
@@ -286,66 +292,66 @@ def daytime_panel(sp: dict) -> str:
                  top=75 if ch["show"] else 40)  # fmt: skip
 
 
-def age_panel(sp: dict) -> str:
-    a = sp["age"]
+DEMOGRAPHY = {  # field: (what is plotted, its class labels, verb)
+    "age": ("non-adult share", ("non-adult", "adult"), "aged"),
+    "sex": ("male share", ("male", "female-type"), "sexed"),
+}
+
+
+def demography_panel(sp: dict, field: str) -> str:
+    """Age or sex (same block): the first class's share per year, sized by the birds classed, and
+    when each class passes."""
+    a = sp[field]
     if not a:
         return ""
-    y, p, n = a["years"], arr(a["share"]), arr(a["aged"])
+    what, labels, verb = DEMOGRAPHY[field]
+    y, p, n = a["years"], arr(a["share"]), arr(a["n"])
     lo, hi, o = arr(a["lo"]), arr(a["hi"]), a["overall"]
-    fig = make_subplots(rows=1, cols=2, subplot_titles=("non-adult share of aged birds",
-                                                        "timing: non-adults vs. adults"))  # fmt: skip
+    fig = make_subplots(rows=1, cols=2, subplot_titles=(f"{what} of birds {verb}",
+                                                        f"timing: {labels[0]} vs. {labels[1]}"))  # fmt: skip
     x0, x1 = min(y) - 0.5, max(y) + 0.5
     fig.add_trace(go.Scatter(x=[x0, x1, x1, x0], y=[o["lo"], o["lo"], o["hi"], o["hi"]],
                              fill="toself", fillcolor="rgba(76,120,168,0.15)", line=dict(width=0),
                              hoverinfo="skip", name=f"all years: {o['share']:.0%}"), 1, 1)  # fmt: skip
     fig.add_trace(go.Scatter(x=[x0, x1], y=[o["share"]] * 2, mode="lines", showlegend=False,
                              line=dict(color=COLORS[0], dash="dash")), 1, 1)  # fmt: skip
-    fig.add_trace(go.Scatter(x=y, y=p, mode="markers", name="per year (size = birds aged)",
+    fig.add_trace(go.Scatter(x=y, y=p, mode="markers", name=f"per year (size = birds {verb})",
                              marker=dict(color=COLORS[0], size=6 + 22 * np.sqrt(n / n.max())),
                              error_y=dict(type="data", symmetric=False, array=hi - p,
                                           arrayminus=p - lo, width=0, color=COLORS[0]),
                              customdata=np.stack([n, arr(a["counted"])], axis=1),
-                             hovertemplate="%{x}: %{y:.0%} of %{customdata[0]:,.0f} aged (of "
-                                           "%{customdata[1]:,.0f})<extra></extra>"), 1, 1)  # fmt: skip
+                             hovertemplate=f"%{{x}}: %{{y:.0%}} of %{{customdata[0]:,.0f}} {verb} "
+                                           "(of %{customdata[1]:,.0f} counted)<extra></extra>"),
+                  1, 1)  # fmt: skip
     t = a["timing"]
-    for i, cls in enumerate(("non_adult", "adult")):
+    for i, (cls, lab) in enumerate(zip(a["classes"], labels)):
         if cls in t:
             fig.add_trace(go.Scatter(x=t["doy"], y=t[cls], line=dict(color=COLORS[i], shape="hv"),
-                                     name=f"{cls} (n={t[cls + '_birds']:,.0f})"), 1, 2)  # fmt: skip
+                                     name=f"{lab} (n={t[cls + '_birds']:,.0f})"), 1, 2)  # fmt: skip
     fig.update_yaxes(tickformat=".0%", range=[0, 1])
     doy_axis(fig, 1, 2)
     fig.update_layout(height=FIG_H + 40, legend=dict(orientation="h", y=-0.15))
-    return panel(fig, f"Age: {o['share']:.0%} non-adult ({o['lo']:.0%}–{o['hi']:.0%}, "
-                      f"{o['aged']:,.0f} aged)" + method(a))  # fmt: skip
-
-
-def sex_panel(sp: dict) -> str:
-    s = sp["sex"]
-    if not s:
-        return ""
-    fig = go.Figure()
-    for i, (k, lab) in enumerate((("M", "male"), ("F", "female"), ("FC", "female-type"))):
-        fig.add_trace(go.Bar(x=s["years"], y=s[k], name=lab, marker_color=COLORS[i]))
-    m = arr(s["male_share"])
-    fig.add_trace(go.Scatter(x=s["years"], y=m, yaxis="y2", mode="markers", name="male share",
-                             marker=dict(color="black"),
-                             error_y=dict(type="data", symmetric=False, array=arr(s["hi"]) - m,
-                                          arrayminus=m - arr(s["lo"]), width=0)))  # fmt: skip
-    fig.update_layout(barmode="stack", height=FIG_H, yaxis=dict(title="birds sexed"),
-                      yaxis2=dict(overlaying="y", side="right", tickformat=".0%", range=[0, 1]))  # fmt: skip
-    return panel(fig, "Sex" + method(s), "Female-type: female or juvenile.")
+    note = "Female-type: female or juvenile, not separable in the field." if field == "sex" else ""
+    return panel(fig, f"{field.capitalize()}: {o['share']:.0%} {labels[0]} ({o['lo']:.0%}–"
+                      f"{o['hi']:.0%}), {o['n']:,.0f} {verb} of {o['counted']:,.0f} counted"
+                      + method(a), note, top=75)  # fmt: skip
 
 
 def records_panel(sp: dict) -> str:
-    top = sp["records"]["top_days"]
+    def note(n):
+        ref = "" if n["ref"] is None else f"<i>{html.escape(n['ref'])}</i> — "
+        return f"<p class='rn'>{ref}{html.escape(n['text'])}</p>"
+
+    def notes(r):
+        return "".join(note(n) for n in r["notes"])
+
     rows = "".join(
         f"<tr><td>{i + 1}</td><td>{r['date']}</td><td class='n'>{r['count']:,.0f}</td>"
-        f"<td class='n'>{'' if r['c'] is None else format(r['c'], '.2f')}</td></tr>"
-        for i, r in enumerate(top)
+        f"<td>{notes(r)}</td></tr>"
+        for i, r in enumerate(sp["records"]["top_days"])
     )
-    table = (f"<div class='panel'><b>Top days</b><table><tr><th>#</th><th>date</th><th>birds"
-             f"</th><th>coverage</th></tr>{rows}</table></div>")  # fmt: skip
-    return table
+    return (f"<div class='panel'><b>Top days</b><table><tr><th>#</th><th>date</th><th>birds</th>"
+            f"<th>what was written that day</th></tr>{rows}</table></div>")  # fmt: skip
 
 
 # --- pages ------------------------------------------------------------------------------------
@@ -407,7 +413,7 @@ tier {tx['tier']} · from {tx['start_year']}</small></h2>
 <h3>Trend</h3>{trend_panel(sp, effort_annual) if sp['trend'] else "<p class='note'>No trend.</p>"}
 <h3>Phenology</h3>{season_panel(sp)}
 <h3>Visiting</h3>{chances_panel(sp)}{daytime_panel(sp)}
-<h3>Age and sex</h3>{age_panel(sp) + sex_panel(sp) or "<p class='note'>Not enough birds aged or sexed.</p>"}
+<h3>Age and sex</h3>{demography_panel(sp, "age") + demography_panel(sp, "sex") or "<p class='note'>Not enough birds aged or sexed.</p>"}
 <h3>Records</h3>{records_panel(sp)}"""
     return wrap(tx["english_name"], f"<section>{body}</section>")
 

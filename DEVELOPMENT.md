@@ -7,7 +7,8 @@ pipeline per taxon, settings, caches, QA viewer) is done: `DECISIONS.md` -> Pipe
 
 Go through `logs/viewer/index.html` (`scripts/explore_viewer.py`) in batches: raptors; pigeons,
 storks, cranes and other large birds; passerines. A fix is a better rule (preferred) or an
-override with its reason. What the first full build already shows:
+override with its reason. The viewer stays a model-inspection tool (everything that helps judge a
+fit, in detail); the visitors' page is designed in defileViz. What the first full build shows:
 
 - Windows (`DECISIONS.md` -> Pipeline): re-run `scripts/benchmark_trend.py` on the extended model
   windows (it uses the default one), and decide how the page says "still passing when counting
@@ -24,6 +25,25 @@ override with its reason. What the first full build already shows:
 - Written accounts: 35 full-tier taxa have none (most passerines, the unidentified groups, the
   combined series); the season context of the reports (weather, monitoring, results) has no
   account and is no longer exported (`reports.json` is gone).
+
+### Trend reliability classes
+
+When and how to show a trend's uncertainty, and when not to show a trend at all, is not decided.
+Each taxon should get a class per claim, defined here (rule, thresholds, reasons) and exported in
+its species file; defileViz only filters on it. A first proposal, to settle on the viewer:
+
+- Claims, classed separately: the annual totals, the long-term trend (the smooth and its change
+  over the period), and the season (passage dates and their shift).
+- Classes: `show`, `caveat` (shown with a sentence on why) and `hide`, each with its reasons as
+  codes, so the page can say why and the viewer can list taxa per reason.
+- Inputs already in the export: the width of the yearly intervals (`interval_ratio`, median
+  q90/q10: 1.46 over the 74 trend taxa, above 2.5 for the worst 10%, 420 for one), the share of
+  each year actually counted (`observed_share`), `passage_beyond_counting`, a borrowed time-of-day
+  profile, the number of years, and the protocol changes (2007 passerines, 2014 hourly sheets).
+- Missing and probably decisive: held-out errors per taxon. `scripts/benchmark_trend.py` covers 7
+  taxa; run on all 74 (about 6 s each) and exported, its gap error and interval coverage would
+  class a taxon by how well its fill is actually known rather than by its own intervals.
+- Per year as well as per taxon: a year mostly filled (low `observed_share`) marked as an estimate.
 
 ## Phase 3: methods
 

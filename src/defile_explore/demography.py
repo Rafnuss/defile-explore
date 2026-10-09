@@ -13,17 +13,23 @@ years to that rule: add them back as an override, with the reason.
 Age codes: `A` adult; `1` (first calendar year), `J` (juvenile), `I` (immature) and `2` (second
 calendar year) are one class, non-adult, because the codes used switch between years (Red Kite:
 mostly `1` in 2019, mostly `I` in 2022), which says more about the recording than the birds. Sex:
-`M`, `F`, and `FC` (female-coloured: a female or a juvenile, not separable in the field).
+`M`, `F`, and `FC` (female-coloured: a female or a juvenile, not separable in the field); `F` and
+`FC` are one class, female-type, against males.
+
+Age and sex make the same block (`share_block`): the share of the first class (non-adult, male) per
+year, the birds classed and counted behind it, and when each class passes.
 """
 
 import numpy as np
 import pandas as pd
 
-METHOD = "demography@2"
+METHOD = "demography@3"
 NON_ADULT = ("1", "J", "I", "2")
 ADULT = ("A",)
 SEXES = ("M", "F", "FC")
 CLASSES = {"age": (NON_ADULT, ADULT), "sex": (("M",), ("F", "FC"))}  # the two classes compared
+NAMES = {"age": ("non_adult", "adult"), "sex": ("male", "female_type")}  # ... in the block
+CODES = {"age": NON_ADULT + ADULT, "sex": SEXES}  # codes counted per year in the block
 MIN_BIRDS = 20  # aged (or sexed) birds in a year for the year to count
 MIN_SHARE = 0.05  # ... and this share of the year's birds counted
 MIN_CLASS_SHARE = 0.1  # ... and the smaller class this share of them (both classes recorded)
@@ -67,55 +73,57 @@ def usable_years(rows: pd.DataFrame, field: str, counted: pd.Series) -> list[int
     return years if len(years) >= MIN_YEARS else []
 
 
-def age_block(rows: pd.DataFrame, counted: pd.Series, years: list[int]) -> dict | None:
-    """Non-adult share per usable year and over them all, and when each class passes (cumulative
-    share by day of year)."""
+def share_block(rows: pd.DataFrame, counted: pd.Series, years: list[int], field: str):
+    """The share of the field's first class (`CLASSES`, named by `NAMES`) per usable year and over
+    them all, with the birds classed (`n`, either class) and counted (`counted`) behind each, and
+    when each class passes (cumulative share by day of year); None without usable years."""
     if not years:
         return None
-    g = per_year(rows, "age", counted).loc[years]
-    k = g[[c for c in NON_ADULT if c in g]].sum(axis=1)
-    n = k + g[[c for c in ADULT if c in g]].sum(axis=1)
+    first, second = CLASSES[field]
+    g = per_year(rows, field, counted).loc[years]
+    k = g[[c for c in first if c in g]].sum(axis=1)
+    n = k + g[[c for c in second if c in g]].sum(axis=1)
     lo, hi = wilson(k, n)
     K, N = float(k.sum()), float(n.sum())
     LO, HI = wilson(K, N)
-    r = rows[rows["date"].dt.year.isin(years) & rows["age"].isin(NON_ADULT + ADULT)]
-    r = r.assign(cls=np.where(r["age"].isin(ADULT), "adult", "non_adult"))
+    names = NAMES[field]
+    r = rows[rows["date"].dt.year.isin(years) & rows[field].isin(first + second)]
+    r = r.assign(cls=np.where(r[field].isin(first), names[0], names[1]))
     by_day = r.pivot_table(
         index=r["date"].dt.dayofyear, columns="cls", values="count", aggfunc="sum"
     ).fillna(0)
     timing = {"doy": by_day.index.to_numpy()}
-    for cls in ("non_adult", "adult"):
+    for cls in names:
         if cls in by_day:
             timing[cls] = (by_day[cls].cumsum() / by_day[cls].sum()).to_numpy()
             timing[f"{cls}_birds"] = float(by_day[cls].sum())
     return {
         "method": METHOD,
+        "classes": list(names),
         "years": years,
-        "aged": n.to_numpy(),
+        "n": n.to_numpy(),
         "counted": g["counted"].to_numpy(),
-        "non_adult": k.to_numpy(),
+        "k": k.to_numpy(),
         "share": (k / n).to_numpy(),
         "lo": lo,
         "hi": hi,
-        "overall": {"share": K / N, "lo": float(LO), "hi": float(HI), "aged": N},
+        "codes": {c: g[c].to_numpy() if c in g else np.zeros(len(g)) for c in CODES[field]},
+        "overall": {
+            "share": K / N,
+            "lo": float(LO),
+            "hi": float(HI),
+            "n": N,
+            "counted": float(g["counted"].sum()),
+        },
         "timing": timing,
     }
 
 
+def age_block(rows: pd.DataFrame, counted: pd.Series, years: list[int]) -> dict | None:
+    """The non-adult share (`share_block`)."""
+    return share_block(rows, counted, years, "age")
+
+
 def sex_block(rows: pd.DataFrame, counted: pd.Series, years: list[int]) -> dict | None:
-    """Birds of each sex code per usable year, and the male share among them."""
-    if not years:
-        return None
-    g = per_year(rows, "sex", counted).loc[years]
-    birds = {s: g[s].to_numpy() if s in g else np.zeros(len(g)) for s in SEXES}
-    n = sum(birds.values())
-    lo, hi = wilson(birds["M"], n)
-    return {
-        "method": METHOD,
-        "years": years,
-        **birds,
-        "counted": g["counted"].to_numpy(),
-        "male_share": birds["M"] / n,
-        "lo": lo,
-        "hi": hi,
-    }
+    """The male share (`share_block`)."""
+    return share_block(rows, counted, years, "sex")

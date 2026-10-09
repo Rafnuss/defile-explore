@@ -9,6 +9,7 @@ from defile_explore import accounts as A
 from defile_explore import daytime as Y
 from defile_explore import demography as G
 from defile_explore import pipeline as L
+from defile_explore import remarks as M
 from defile_explore import season as S
 from defile_explore import settings as X
 from defile_explore import window as W
@@ -192,7 +193,19 @@ def test_non_adult_codes_are_one_class():
     counted = pd.Series(100.0, index=[2020, 2021, 2022])
     b = G.age_block(rows, counted, [2020, 2021, 2022])
     assert b["share"].tolist() == [0.5, 0.5, 0.5]
-    assert b["overall"]["aged"] == 180
+    assert b["overall"]["n"] == 180
+    assert b["overall"]["counted"] == 300
+
+
+def test_sex_is_the_male_share_against_female_types():
+    rows = pd.concat(
+        [demo_rows(y, {"M": 30, "F": 10, "FC": 20}, "sex") for y in (2020, 2021, 2022)]
+    )
+    b = G.sex_block(rows, pd.Series(100.0, index=[2020, 2021, 2022]), [2020, 2021, 2022])
+    assert b["classes"] == ["male", "female_type"]
+    assert b["share"].tolist() == [0.5, 0.5, 0.5]
+    assert b["codes"]["FC"].tolist() == [20, 20, 20]
+    assert b["timing"]["male_birds"] == 90
 
 
 def test_years_need_enough_birds_aged_and_enough_years():
@@ -312,3 +325,28 @@ def test_accounts_block_orders_sections_and_years(tmp_path):
     assert list(b["general"]) == ["passage", "particularites"]
     assert [r["year"] for r in b["years"]] == [2024, 2020]  # newest first, none after 2025
     assert A.accounts_block(A.taxon_rows(a, "t3"), 2025) is None
+
+
+# --- remarks -----------------------------------------------------------------------------------
+
+
+def test_a_remark_is_split_into_paragraphs_with_their_source():
+    text = (
+        "details: \n\n[Rapport annuel 2020; Contexte journalier 2020-10-14, Milan royal] Un pic."
+    )
+    assert M.split(text) == [("Rapport annuel 2020", "Un pic.")]
+    assert M.split("detail: 2x mâles adultes") == [(None, "2x mâles adultes")]
+    assert M.split("An explicit 'no species' entry was recorded in the source.") == []
+
+
+def test_a_day_lists_survey_notes_first_and_each_text_once():
+    d = pd.Timestamp("2020-10-14")
+    remarks = pd.DataFrame(
+        [
+            ("t", d, "count", "R", "Un pic."),
+            ("t", d, "count", "R", "Un pic."),
+            (None, d, "survey", None, "Quelle journée !"),
+        ],  # fmt: skip
+        columns=M.COLUMNS,
+    )
+    assert [n["text"] for n in M.notes_of(remarks, d)] == ["Quelle journée !", "Un pic."]

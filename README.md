@@ -35,11 +35,16 @@ uv run python scripts/build_explore.py --dataset ../defile-dataset/output
 uv run python scripts/build_explore.py
 uv run python scripts/build_explore.py --taxa "Red Kite" "Hen Harrier"   # only these taxa
 
-# QA viewer: logs/viewer/index.html, every full-tier taxon with all its panels
+# QA viewer: logs/viewer/index.html, every full-tier taxon with all its model output
 uv run python scripts/explore_viewer.py
 ```
 
 `data/` and `logs/` are generated and never committed.
+
+The viewer is for inspecting the model output in full detail: fits, intervals, windows, diagnostics,
+method versions. What visitors see is built in defileViz, from the same species files but trimmed
+and told as a story; a choice of what to show or hide (as the trend reliability classes) is defined
+here, in the export, and only applied there.
 
 ## Species and year accounts
 

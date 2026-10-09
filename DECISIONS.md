@@ -286,8 +286,18 @@ rule drops those years (Red Kite, Black Kite, Grey Heron and gull sp. lose the p
 it). It also drops a year where one class is genuinely under 10%: such a taxon gets its years back
 as an override, with the reason. Sex uses males against females and female-coloured birds.
 
+**Sex is drawn like age** (`demography@3`, one `share_block` for both): the male share per usable
+year, with its interval, sized by the birds sexed, the pooled share as a band, and when males and
+female-types pass. The title gives the birds sexed (or aged) against all birds counted in those
+years, since only part of them are.
+
 **Records are all-time**, historical counts included (all pigeons: 116 340 on 20 Oct 1975),
 decided by the user: a record is a count, not an estimate, so the start year does not apply.
+Each top day carries what was written about it in the release (`records@2`, `remarks.py`): the
+counters' survey remark of the day and the taxon's count remarks, including the report paragraphs
+the dataset attached to that day (Red Kite, 14 Oct 2020: the site record of 2 112). Field labels
+(`details:`) and the dataset's placeholders are dropped; the texts stay in French. Coverage is no
+longer listed: a record is what was counted. The best day of each year is gone too.
 
 **Windows per taxon: fitted on a model window, shown over a wider view window, by rule**
 (`window@1`). The default window (18 Jul - 18 Nov) is where 80-100% of years are counted; from
