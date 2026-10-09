@@ -12,11 +12,11 @@ day equivalent. Neither is given below `COVERAGE_MIN`, nor before the taxon's `s
 import numpy as np
 import pandas as pd
 
-from defile_explore.export import HOURS, hours_per_clock_hour, in_window, to_local
+from defile_explore.export import HOURS, hours_per_solar_hour, in_window, solar_shift, to_local
 from defile_explore.release import civil_twilight
 from defile_explore.timeofday import RATIO_WEIGHT_POWER, fit_ratio_surface
 
-# A species' profile p(h | doy) is the share of its full-day passage in each local clock hour,
+# A species' profile p(h | doy) is the share of its full-day passage in each solar hour,
 # fitted on days timed to the hour (`profile_samples`) and used to say how much of that day's
 # passage the hours counted covered (`coverage`). See DECISIONS.md -> Explore.
 PROFILE_MIN_TIMED = 0.9  # a sample day has at least this share of its birds timed to the hour
@@ -38,14 +38,18 @@ PROFILE_EXPORT_STEP = 7  # days between the exported profile's rows
 
 
 def daylight(doy: np.ndarray) -> np.ndarray:
-    """Fraction of each local clock hour between civil dawn and dusk, shape (len(doy), 24).
+    """Fraction of each solar hour between civil dawn and dusk, shape (len(doy), 24).
 
     Days of year are taken in a non-leap year (2025): a day's difference is negligible here.
     """
     dates = pd.Series(pd.Timestamp("2024-12-31") + pd.to_timedelta(doy, unit="D"))
     dawn, dusk = civil_twilight(dates)
+    shift = solar_shift(dates)
     return np.array(
-        [hours_per_clock_hour([(a, b)]) for a, b in zip(to_local(dawn), to_local(dusk))]
+        [
+            hours_per_solar_hour([(a, b)], s)
+            for a, b, s in zip(to_local(dawn), to_local(dusk), shift)
+        ]
     )
 
 
@@ -55,7 +59,7 @@ def profile_samples(
     """Hour-of-day ratio samples (`doy`, `hour`, `ratio`, `weight`) for one or more taxa.
 
     For each day with migrating birds, mostly timed to the hour (`PROFILE_MIN_TIMED`) and counted
-    in at least `PROFILE_MIN_HOURS` clock hours: every hour counted for at least
+    in at least `PROFILE_MIN_HOURS` solar hours: every hour counted for at least
     `PROFILE_MIN_HOUR_EFFORT` gives `ratio` = its rate / the day's rate over those hours,
     zero when no bird was timed to it. `weight` = the day's birds ** `RATIO_WEIGHT_POWER`, as in
     the model's phenology.
@@ -87,7 +91,7 @@ def profile_samples(
 
 
 def fit_profile(samples: pd.DataFrame, doy_grid: np.ndarray, light: np.ndarray, label=""):
-    """P(h | doy) on `doy_grid` x 24 local hours: the fitted ratio surface on the hours the samples
+    """P(h | doy) on `doy_grid` x 24 solar hours: the fitted ratio surface on the hours the samples
     span, times the `daylight` fraction, normalised to sum to 1 on each day."""
     if samples.empty:
         raise ValueError(f"{label}: no profile samples")

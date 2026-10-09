@@ -217,7 +217,7 @@ def key_numbers(sp: dict) -> str:
                       f"median {doy_label(p['q50'])} ({p['source']})", "key_numbers.passage"))  # fmt: skip
     if "best_hours" in k:
         b = k["best_hours"]
-        items.append(("Best hours", f"{b['from']:02d}:00 – {b['to']:02d}:00",
+        items.append(("Best hours (solar time)", f"{b['from']:02d}:00 – {b['to']:02d}:00",
                       f"{b['share']:.0%} of a peak day", None))  # fmt: skip
     if "typical_season" in k:
         t = k["typical_season"]
@@ -471,13 +471,13 @@ def daytime_panel(sp: dict) -> str:
         for t in hist:
             fig.add_trace(t, 1, 2)
         doy_axis(fig, 1, 1)
-        fig.update_yaxes(title="local hour", range=[5.5, 20.5], row=1, col=1)
-        fig.update_xaxes(range=[5.5, 20.5], title="local hour", row=1, col=2)
+        fig.update_yaxes(title="solar hour (12 = solar noon)", range=[4.5, 19.5], row=1, col=1)
+        fig.update_xaxes(range=[4.5, 19.5], title="solar hour (12 = solar noon)", row=1, col=2)
         fig.update_yaxes(tickformat=".0%", row=1, col=2)
         fig.update_annotations(yshift=6, font_size=12)
     else:
         fig = go.Figure(hist)
-        fig.update_xaxes(range=[5.5, 20.5], title="local hour", dtick=1)
+        fig.update_xaxes(range=[4.5, 19.5], title="solar hour (12 = solar noon)", dtick=1)
         fig.update_yaxes(tickformat=".0%", title="share of the day's birds")
     fig.update_layout(height=FIG_H, bargap=0.05)
     if "shift" in ch:
@@ -488,7 +488,8 @@ def daytime_panel(sp: dict) -> str:
         change = f"Change not tested (timed days early/late: {ch['days'][0]}/{ch['days'][1]})."
     return panel(fig, f"Passage during the day ({d['years'][0]}–{d['years'][1]}, {d['days']} "
                       f"days timed)" + method(d),
-                 "Bars: birds per counted hour, as shares, pooled over the season. " + change,
+                 "Bars: birds per counted hour, as shares, pooled over the season. Hours are "
+                 "solar time: add about 1.6 h for summer time, 0.5 h for winter time. " + change,
                  top=75 if ch["show"] else 40,
                  strip=strip(sp, counts="by date" if ch["show"] else "one histogram"))  # fmt: skip
 

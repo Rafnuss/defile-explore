@@ -671,7 +671,7 @@ def hour_dispersion(
     hours are Dirichlet-multinomial with weights kappa * p(h) * hours counted. Maximum likelihood
     over the days timed to the hour (`PROFILE_MIN_TIMED`) with at least two counted hours; birds
     timed to an hour with no coverage are left out. Without such days: `KAPPA_BOUNDS[1]`, Poisson.
-    Fitted on blocks of `block` clock hours (`KAPPA_BLOCK`), at least two of them counted.
+    Fitted on blocks of `block` solar hours (`KAPPA_BLOCK`), at least two of them counted.
     """
     d = days[(days["count"] > 0) & (days["timed"] >= PROFILE_MIN_TIMED)]
     counted = effort[effort["state"] == "counted"].set_index("date")["hourly"]
@@ -686,7 +686,7 @@ def hour_dispersion(
     a = profile[doy.to_numpy()] * np.stack(d["date"].map(counted).to_numpy())
     on = a > 0
     birds = np.where(on, birds, 0)
-    if block > 1:  # clock hours summed into blocks: a Dirichlet's kappa is unchanged by this
+    if block > 1:  # hours summed into blocks: a Dirichlet's kappa is unchanged by this
         a = a.reshape(len(a), -1, block).sum(axis=2)
         birds = birds.reshape(len(birds), -1, block).sum(axis=2)
         on = a > 0

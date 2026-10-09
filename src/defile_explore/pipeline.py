@@ -258,8 +258,8 @@ def records_block(days: pd.DataFrame, remarks: pd.DataFrame) -> dict:
 
 
 def best_hours(profile: np.ndarray, doy: float) -> dict:
-    """The fewest local clock hours holding `BEST_HOURS_SHARE` of the profile on day `doy`, as a
-    range from the first to the last of them."""
+    """The fewest solar hours holding `BEST_HOURS_SHARE` of the profile on day `doy`, as a range
+    from the first to the last of them."""
     p = profile[int(np.clip(round(doy), *P.PROFILE_DOY)) - P.PROFILE_DOY[0]]
     order = np.argsort(p)[::-1]
     top = order[: np.searchsorted(np.cumsum(p[order]), BEST_HOURS_SHARE) + 1]

@@ -17,11 +17,11 @@ Files, written by `scripts/build_explore.py` (one `build_*` function each):
   series (`COMBINED`: all Columba pigeons, all swallows and martins) are taxa too, with rank
   `combined` and their `members`, and a `species/` file of their own.
 - `effort.json`: one entry per local day with any survey: counted hours (union of `complete`
-  survey intervals), first/last counted time, hours counted per local clock hour, and the hours of
+  survey intervals), first/last counted time, hours counted per solar hour, and the hours of
   `partial`, `unknown` and `none` (not counted) surveys.
 - `species/<taxon_id>.json`: per day, the main-direction count with its qualifiers, the reverse
   and local counts, the share of birds timed to the hour, the day's coverage `c` and the
-  effort-adjusted count; per local hour, the birds timed to it; per year, totals and the
+  effort-adjusted count; per solar hour, the birds timed to it; per year, totals and the
   effort-adjusted index; the time-of-day profile used; and for
   full-tier species and combined series, `trend` (`defile_explore.trend.taxon_trend`): gap-filled
   annual totals with intervals, the smooth trend, the median passage date per year, the smooth
@@ -31,6 +31,11 @@ Files, written by `scripts/build_explore.py` (one `build_*` function each):
   `accounts`, `benchmark`, `reliability`, `diagnostics`); each of those modules documents its block.
 
 Tables are columnar (`{"date": [...], "count": [...]}`) to keep the files small.
+
+Hours of the day are local apparent solar time (`solar_shift`): hour 12 starts at the sun's transit
+over Defile, whatever the clock says. Days are local calendar dates. A day's passage keeps its place
+in solar time through the season, where on the clock it moves by an hour at the end of summer time
+and by 20 min with the equation of time (DECISIONS.md -> Explore).
 """
 
 import datetime as dt
@@ -45,13 +50,14 @@ from defile_explore.release import (
     MAIN_CATEGORY,
     METADATA_FILE,
     PRESENCE_ONLY,
+    SITE,
     TIMEZONE,
     parse_counts,
     parse_surveys,
 )
 
 # Bump when a field's meaning changes, so defileViz can refuse an export it does not understand.
-DEFINITIONS_VERSION = 1
+DEFINITIONS_VERSION = 2  # 2: hours of the day in solar time
 
 # Default comparison window (month, day), inclusive. A window for annual totals, not a filter:
 # every day is exported.
@@ -124,7 +130,7 @@ EBIRD_TAXONOMY_FILE = os.path.join("count", "ebird_taxonomy_fr_FR.csv")
 # Taxa whose `ebird_code` is no longer in the eBird taxonomy.
 FRENCH_NAME_OVERRIDES = {"avibase-81B32602": "Corneille mantelée"}  # hoocro4, Corvus c. cornix
 
-# A count is "timed" when its own time, or its survey, places it within one local clock hour.
+# A count is "timed" when it has its own time, or inherits a survey at most this long.
 TIMED_MAX_DURATION = pd.Timedelta(hours=1)
 
 COVERAGE_STATES = ("complete", "partial", "unknown", "none")
@@ -133,12 +139,36 @@ HOURS = 24
 DECIMALS = 3  # hours and fractions
 
 
-# --- local time -------------------------------------------------------------
+# --- local and solar time --------------------------------------------------
 
 
 def to_local(t: pd.Series) -> pd.Series:
     """UTC times -> naive local wall-clock times."""
     return t.dt.tz_convert(TIMEZONE).dt.tz_localize(None)
+
+
+def solar_shift(dates: pd.Series) -> pd.Series:
+    """Hours from local apparent solar time to local clock time on each local date: clock time less
+    this is solar time, 12:00 at the sun's transit over Defile (`SITE`).
+
+    The zone's offset from UTC at local noon (summer time included), less the longitude's offset
+    and the equation of time (NOAA's Fourier series, within a minute). Constant through a day:
+    summer time changes at night.
+    """
+    days = pd.DatetimeIndex(pd.to_datetime(dates.unique()))
+    noon = days + pd.Timedelta(hours=12)
+    utc_noon = noon.tz_localize(TIMEZONE).tz_convert("UTC").tz_localize(None)
+    zone = (noon - utc_noon) / pd.Timedelta(hours=1)
+    g = 2 * np.pi / 365 * (days.dayofyear - 1)
+    eot = 229.18 * (  # minutes
+        0.000075
+        + 0.001868 * np.cos(g)
+        - 0.032077 * np.sin(g)
+        - 0.014615 * np.cos(2 * g)
+        - 0.040849 * np.sin(2 * g)
+    )
+    shift = np.asarray(zone) - SITE[1] / 15 - np.asarray(eot) / 60
+    return pd.Series(dates).map(dict(zip(days, shift)))
 
 
 def split_at_midnight(start: pd.Series, end: pd.Series) -> pd.DataFrame:
@@ -163,13 +193,16 @@ def merge_intervals(start: np.ndarray, end: np.ndarray) -> list[tuple]:
     return out
 
 
-def hours_per_clock_hour(intervals: list[tuple]) -> np.ndarray:
-    """Hours covered in each of the 24 local clock hours of a day by (start, end) intervals."""
+def hours_per_solar_hour(intervals: list[tuple], shift: float) -> np.ndarray:
+    """Hours covered in each of the 24 solar hours of a day by (start, end) intervals in local
+    clock time within that day, `shift` the day's `solar_shift`; what falls outside the solar day
+    (at night) is left out."""
     cover = np.zeros(HOURS)
     for s, e in intervals:
         day = s.normalize()
-        a, b = (s - day) / pd.Timedelta(hours=1), (e - day) / pd.Timedelta(hours=1)
-        for h in range(int(np.floor(a)), min(int(np.ceil(b)), HOURS)):
+        a = (s - day) / pd.Timedelta(hours=1) - shift
+        b = (e - day) / pd.Timedelta(hours=1) - shift
+        for h in range(max(int(np.floor(a)), 0), min(int(np.ceil(b)), HOURS)):
             cover[h] += max(0.0, min(b, h + 1) - max(a, h))
     return cover
 
@@ -181,23 +214,25 @@ def build_effort(surveys: pd.DataFrame) -> pd.DataFrame:
     """One row per local day with any survey.
 
     `hours` is the union of `complete` survey intervals (never a sum of nested or overlapping
-    ones); `first`/`last` its local bounds; `periods` the number of complete surveys; `hourly` the
-    hours counted in each local clock hour; `partial_hours`, `unknown_hours`, `none_hours` the
-    other surveys' hours. `state`: `counted` (some complete hours), else `uncertain` (only partial
-    or unknown), else `not_counted` (only `none`: rain, closures).
+    ones); `first`/`last` its local bounds (clock time); `periods` the number of complete surveys;
+    `hourly` the hours counted in each solar hour; `partial_hours`, `unknown_hours`, `none_hours`
+    the other surveys' hours. `state`: `counted` (some complete hours), else `uncertain` (only
+    partial or unknown), else `not_counted` (only `none`: rain, closures).
     """
     s = surveys.assign(lstart=to_local(surveys["start"]), lend=to_local(surveys["end"]))
     pieces = split_at_midnight(s["lstart"], s["lend"])
     pieces = pieces.join(s[["survey_coverage", "recording_era"]])
     pieces["date"] = pieces["start"].dt.normalize()
+    shift = solar_shift(pd.Series(pieces["date"].unique()))
+    shift = dict(zip(pieces["date"].unique(), shift))
 
     rows = []
     for date, day in pieces.groupby("date"):
         row = {"date": date}
         complete = day[day["survey_coverage"] == "complete"]
         union = merge_intervals(complete["start"].tolist(), complete["end"].tolist())
-        hourly = hours_per_clock_hour(union)
-        row["hours"] = hourly.sum()
+        hourly = hours_per_solar_hour(union, shift[date])
+        row["hours"] = sum((e - b) / pd.Timedelta(hours=1) for b, e in union)
         row["first"] = union[0][0] if union else None
         row["last"] = union[-1][1] if union else None
         row["periods"] = len(complete)
@@ -241,24 +276,30 @@ def annual_effort(effort: pd.DataFrame) -> pd.DataFrame:
 # --- counts -----------------------------------------------------------------
 
 
-def timed_hour(counts: pd.DataFrame, surveys: pd.DataFrame) -> pd.Series:
-    """Local clock hour (0-23) each count is timed to, or NaN.
+def timed_span(counts: pd.DataFrame, surveys: pd.DataFrame) -> pd.DataFrame:
+    """`solar_start`, `solar_end`: the solar hours of its day each count is timed to, NaN if
+    untimed.
 
-    Timed: the count's own time (a point), or, without one, a survey of at most an hour within
-    one local clock hour (historical hour-by-hour records). Day-level entries are untimed.
+    Timed: the count's own time (a point, start = end), or, without one, its survey's interval when
+    at most `TIMED_MAX_DURATION` long (historical hour-by-hour records). Day-level entries are
+    untimed.
     """
     sv = surveys.set_index("survey_id")
     start = to_local(counts["survey_id"].map(sv["start"]))
     end = to_local(counts["survey_id"].map(sv["end"]))
-    one_hour = ((end - start) <= TIMED_MAX_DURATION) & (
-        start.dt.floor("h") == (end - pd.Timedelta(seconds=1)).dt.floor("h")
-    )
     own = counts["datetime"].notna()
-    inherits = counts["raw_datetime"].isna()
-    hour = pd.Series(np.nan, index=counts.index)
-    hour[own] = to_local(counts.loc[own, "datetime"]).dt.hour
-    hour[inherits & one_hour] = start[inherits & one_hour].dt.hour
-    return hour
+    inherits = counts["raw_datetime"].isna() & ((end - start) <= TIMED_MAX_DURATION) & ~own
+    shift = solar_shift(counts["date"]).set_axis(counts.index)
+
+    def solar(t):
+        return (t - counts["date"]) / pd.Timedelta(hours=1) - shift
+
+    span = pd.DataFrame(np.nan, index=counts.index, columns=["solar_start", "solar_end"])
+    point = solar(to_local(counts["datetime"].where(own)))
+    span.loc[own, "solar_start"] = span.loc[own, "solar_end"] = point[own]
+    span.loc[inherits, "solar_start"] = solar(start)[inherits]
+    span.loc[inherits, "solar_end"] = solar(end)[inherits]
+    return span
 
 
 def daily_counts(counts: pd.DataFrame) -> pd.DataFrame:
@@ -285,11 +326,30 @@ def daily_counts(counts: pd.DataFrame) -> pd.DataFrame:
 
 
 def hourly_counts(counts: pd.DataFrame) -> pd.DataFrame:
-    """Main-direction birds per taxon, local day and local clock hour, from timed counts only."""
-    timed = counts[(counts["count_category"] == MAIN_CATEGORY) & counts["hour"].notna()]
-    h = timed.groupby(["taxon_id", "date", "hour"])["count"].sum().reset_index()
-    h["hour"] = h["hour"].astype(int)
-    return h
+    """Main-direction birds per taxon, local day and solar hour, from timed counts only.
+
+    A count timed to an interval is spread over the solar hours it overlaps, in proportion (an
+    hour-by-hour sheet's clock hour falls across two solar hours); one timed to a point falls in
+    that point's hour. What falls outside the solar day is left out.
+    """
+    t = counts[(counts["count_category"] == MAIN_CATEGORY) & counts["solar_start"].notna()]
+    a, b = t["solar_start"].to_numpy()[:, None], t["solar_end"].to_numpy()[:, None]
+    edge = np.arange(HOURS)[None, :]
+    overlap = np.clip(np.minimum(b, edge + 1) - np.maximum(a, edge), 0, None)
+    point = (b <= a).ravel()
+    share = np.where(
+        point[:, None], np.floor(a) == edge, overlap / np.where(point, 1, (b - a).ravel())[:, None]
+    )
+    i, hour = np.nonzero(share)
+    h = pd.DataFrame(
+        {
+            "taxon_id": t["taxon_id"].to_numpy()[i],
+            "date": t["date"].to_numpy()[i],
+            "hour": hour,
+            "count": t["count"].to_numpy()[i] * share[i, hour],
+        }
+    )
+    return h.groupby(["taxon_id", "date", "hour"])["count"].sum().reset_index()
 
 
 def in_window(dates: pd.Series) -> pd.Series:
@@ -431,11 +491,11 @@ def add_combined(
 
 def release_counts(count: pd.DataFrame, surveys: pd.DataFrame, taxonomy: pd.DataFrame):
     """`count.csv` parsed (`counts.parse_counts`, without entry times), plus its own
-    `raw_datetime`, the local clock `hour` it is timed to (`timed_hour`) and its `timed_count`."""
+    `raw_datetime`, the solar hours it is timed to (`timed_span`) and its `timed_count`."""
     c = parse_counts(count, surveys, taxonomy)
     c["raw_datetime"] = count["datetime"].to_numpy()
-    c["hour"] = timed_hour(c, surveys)
-    c["timed_count"] = c["count"].where(c["hour"].notna(), 0).fillna(0)
+    c[["solar_start", "solar_end"]] = timed_span(c, surveys)
+    c["timed_count"] = c["count"].where(c["solar_start"].notna(), 0).fillna(0)
     return c
 
 

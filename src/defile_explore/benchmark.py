@@ -41,7 +41,7 @@ QUANTILE_COLUMNS = ["q2.5", "q10", "q90", "q97.5"]
 
 
 def hourly_effort(effort: pd.DataFrame) -> pd.Series:
-    """Hours counted per local clock hour, by date, on counted days."""
+    """Hours counted per solar hour, by date, on counted days."""
     e = effort[effort["state"] == "counted"]
     return pd.Series(list(e["hourly"]), index=e["date"])
 
@@ -108,8 +108,10 @@ def targets_and_donors(frame: pd.DataFrame, start: int) -> tuple[list[int], list
 def gap_trials(ctx: dict, frame: pd.DataFrame, fits: dict, kappa: float) -> pd.DataFrame:
     """`ROTATIONS` refits per fitted variant (`fits`: `{variant: trend.Fit}` on `frame`), each with
     every target year given a different donor's gaps at once (the donors rotate), so a taxon has
-    `ROTATIONS` x targets trials per method; plus the ratio estimator. Empty without targets or
-    donors."""
+    `ROTATIONS` x targets trials per method; plus the ratio estimator.
+
+    Empty without targets or donors.
+    """
     years = np.arange(ctx["start"], ctx["last"] + 1)
     doy_range = (int(frame["doy"].min()), int(frame["doy"].max()))
     targets, donors = targets_and_donors(frame, ctx["start"])
@@ -117,7 +119,10 @@ def gap_trials(ctx: dict, frame: pd.DataFrame, fits: dict, kappa: float) -> pd.D
         return pd.DataFrame()
     rows = []
     for k in range(ROTATIONS):
-        donor = {ty: donors[(i + k * len(donors) // ROTATIONS) % len(donors)] for i, ty in enumerate(targets)}
+        donor = {
+            ty: donors[(i + k * len(donors) // ROTATIONS) % len(donors)]
+            for i, ty in enumerate(targets)
+        }
         masked = {ty: transplant(frame[frame["year"] == ty], donor[ty], ctx) for ty in targets}
         train = pd.concat(
             [frame[~frame["year"].isin(targets)], *[m[frame.columns] for m in masked.values()]],
@@ -172,8 +177,10 @@ def gap_trials(ctx: dict, frame: pd.DataFrame, fits: dict, kappa: float) -> pd.D
 
 def recent_trials(ctx: dict, frame: pd.DataFrame, kappa: float, variants=("gam",)) -> pd.DataFrame:
     """Each season from `RECENT_FROM`, predicted by `variants` fitted on the seasons before it:
+
     counted birds against the predicted total of the same days, and the days' mean log predictive
-    density. Empty if no season from `RECENT_FROM` was counted or none before it."""
+    density. Empty if no season from `RECENT_FROM` was counted or none before it.
+    """
     years = np.arange(ctx["start"], ctx["last"] + 1)
     doy_range = (int(frame["doy"].min()), int(frame["doy"].max()))
     future = frame["year"] >= RECENT_FROM
@@ -212,7 +219,10 @@ def recent_trials(ctx: dict, frame: pd.DataFrame, kappa: float, variants=("gam",
 def score(df: pd.DataFrame, by=("method",)) -> pd.DataFrame:
     """Per `by`: median |log(estimate / truth)| (`abs_log_err`), its median sign (`bias`), how
     often the 80% and 95% intervals hold the truth (`cover80`, `cover95`; NaN without intervals)
-    and the trials (`n`). Trials with no bird counted are left out."""
+    and the trials (`n`).
+
+    Trials with no bird counted are left out.
+    """
     d = df[df["truth"] > 0].assign(err=lambda x: np.log((x["estimate"] + 1) / (x["truth"] + 1)))
     if "q10" not in d:
         d = d.assign(**{c: np.nan for c in QUANTILE_COLUMNS})

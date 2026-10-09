@@ -82,7 +82,25 @@ def _counts(rows: list[tuple], surveys: pd.DataFrame) -> pd.DataFrame:
     return E.release_counts(count, surveys, taxonomy)
 
 
-def test_effort_is_the_union_of_complete_intervals_by_local_hour():
+def solar_bins(*spans: tuple, shift: float) -> np.ndarray:
+    """Hours of each solar hour covered by (start, end) local clock hours, on a day of `shift`."""
+    edge = np.arange(E.HOURS)
+    out = np.zeros(E.HOURS)
+    for a, b in spans:
+        out += np.clip(np.minimum(b - shift, edge + 1) - np.maximum(a - shift, edge), 0, None)
+    return out
+
+
+def test_solar_noon_moves_on_the_clock_not_in_solar_time():
+    days = pd.Series(pd.to_datetime(["2023-08-01", "2023-10-28", "2023-10-29", "2023-11-03"]))
+    noon = 12 + E.solar_shift(days)
+    # sun's transit at Defile: 13:43 CEST on 1 Aug, 12:20 CET on 3 Nov; summer time ends 29 Oct
+    assert noon.iloc[0] == pytest.approx(13 + 43 / 60, abs=2 / 60)
+    assert noon.iloc[3] == pytest.approx(12 + 20 / 60, abs=2 / 60)
+    assert noon.iloc[1] - noon.iloc[2] == pytest.approx(1, abs=1 / 60)
+
+
+def test_effort_is_the_union_of_complete_intervals_by_solar_hour():
     s = _surveys(
         [
             ("a", f"{DAY} 08:30", f"{DAY} 10:00"),
@@ -96,7 +114,8 @@ def test_effort_is_the_union_of_complete_intervals_by_local_hour():
     d = e.loc[DAY]
     assert d["hours"] == pytest.approx(2.25)
     assert (d["first"].strftime("%H:%M"), d["last"].strftime("%H:%M")) == ("08:30", "10:45")
-    assert list(d["hourly"][8:12]) == pytest.approx([0.5, 1, 0.75, 0])
+    shift = E.solar_shift(pd.Series([pd.Timestamp(DAY)])).iloc[0]
+    assert d["hourly"] == pytest.approx(solar_bins((8.5, 10.75), shift=shift))
     assert d["partial_hours"] == 1 and d["periods"] == 2
     assert e["state"].to_dict() == {
         DAY: "counted",
@@ -108,11 +127,13 @@ def test_effort_is_the_union_of_complete_intervals_by_local_hour():
 def test_effort_splits_a_survey_at_local_midnight():
     s = _surveys([("a", f"{DAY} 22:00", "2023-08-02 02:00")])
     e = E.build_effort(s)
-    assert list(e["hours"]) == [2, 2]
-    assert e["hourly"].iloc[1][:2].tolist() == [1, 1]
+    assert list(e["hours"]) == [2, 2]  # counted hours, though the night falls outside solar hours
+    shift = E.solar_shift(e["date"])
+    assert e["hourly"].iloc[0] == pytest.approx(solar_bins((22, 24), shift=shift.iloc[0]))
+    assert e["hourly"].iloc[1] == pytest.approx(solar_bins((0, 2), shift=shift.iloc[1]))
 
 
-def test_timed_to_the_hour_own_time_or_a_one_hour_survey_only():
+def test_timed_to_its_own_time_or_a_survey_of_an_hour_at_most_spread_over_solar_hours():
     s = _surveys(
         [
             ("long", f"{DAY} 08:00", f"{DAY} 12:00"),
@@ -130,12 +151,20 @@ def test_timed_to_the_hour_own_time_or_a_one_hour_survey_only():
         ],
         s,
     )
-    assert c["hour"].iloc[[0, 3]].tolist() == [9, 13]
-    assert c["hour"].iloc[[1, 2, 4]].isna().all()
+    shift = E.solar_shift(pd.Series([pd.Timestamp(DAY)])).iloc[0]
+    assert c["solar_start"].iloc[[0, 3, 4]].tolist() == pytest.approx(
+        [9 + 40 / 60 - shift, 13 - shift, 14.5 - shift]
+    )
+    assert c["solar_end"].iloc[[0, 3, 4]].tolist() == pytest.approx(
+        [9 + 40 / 60 - shift, 14 - shift, 15.5 - shift]
+    )
+    assert c["solar_start"].iloc[[1, 2]].isna().all()
     d = E.daily_counts(c)
-    assert d["timed"].iloc[0] == pytest.approx((5 + 13) / 53)
-    h = E.hourly_counts(c)
-    assert dict(zip(h["hour"], h["count"])) == {9: 5, 13: 13}
+    assert d["timed"].iloc[0] == pytest.approx((5 + 13 + 17) / 53)
+    h = E.hourly_counts(c).set_index("hour")["count"]
+    expected = 13 * solar_bins((13, 14), shift=shift) + 17 * solar_bins((14.5, 15.5), shift=shift)
+    expected[int(np.floor(9 + 40 / 60 - shift))] += 5  # a point falls in one hour
+    assert h.reindex(range(E.HOURS), fill_value=0).to_numpy() == pytest.approx(expected)
 
 
 def test_daily_counts_keep_unknown_apart_from_zero_and_keep_qualifiers():
@@ -532,4 +561,6 @@ def test_a_count_with_its_own_hour_is_timed_at_its_midpoint():
     )
     assert c["datetime"].iloc[0] == utc(f"{DAY} 09:30")
     assert pd.isna(c["datetime"].iloc[1]) and c["date"].iloc[1] == pd.Timestamp(DAY)
-    assert c["hour"].iloc[0] == 9 and pd.isna(c["hour"].iloc[1])
+    shift = E.solar_shift(pd.Series([pd.Timestamp(DAY)])).iloc[0]
+    assert c["solar_start"].iloc[0] == pytest.approx(9.5 - shift)
+    assert pd.isna(c["solar_start"].iloc[1])

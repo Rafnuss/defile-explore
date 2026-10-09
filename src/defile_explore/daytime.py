@@ -1,5 +1,5 @@
-"""Passage through the day, as counted: birds per counted hour by local clock hour, on the days
-timed to the hour, with the smooth time-of-day profile (`defile_explore.profile`) beside it.
+"""Passage through the day, as counted: birds per counted hour by solar hour, on the days timed to
+the hour, with the smooth time-of-day profile (`defile_explore.profile`) beside it.
 
 The rate of an hour is the birds timed to it over the hours counted in it, pooled over the days of
 a period, so hours counted less often weigh less, not zero. Only days with birds and at least
@@ -10,9 +10,9 @@ The block gives one histogram for the whole season (`hours`), and the date x hou
 the passage hour changes through the season (`change`): the late part's mean passage hour minus the
 early part's (`PART_QUANTILES` of the passage), with a 95% interval from resampling days, so a
 single flock cannot make a change look certain. `change.show` when the interval excludes zero and
-the shift is at least `SHIFT_MIN_HOURS`. In clock time, the hour the page shows: the end of summer
-time (late October) and later sunrises move late taxa about an hour earlier on the clock, a change
-a visitor needs to know about whatever its cause.
+the shift is at least `SHIFT_MIN_HOURS`. In solar time (`defile_explore.export.solar_shift`), like
+every hour of the export: the end of summer time and the equation of time no longer make late taxa
+look earlier, so a change shown is the birds' own.
 """
 
 import numpy as np
@@ -21,7 +21,7 @@ import pandas as pd
 from defile_explore.export import HOURS
 from defile_explore.profile import PROFILE_DOY, PROFILE_MIN_TIMED
 
-METHOD = "daytime@2"
+METHOD = "daytime@3"  # 3: solar hours
 PENTAD = 5  # days per period of the date x hour grid
 MIN_HOUR_EFFORT = 3.0  # counted hours below which an hour's rate in a period is not shown
 MIN_PERIOD_BIRDS = 30  # timed birds below which a period's column is not shown
@@ -34,7 +34,7 @@ SEED = 0
 
 def timed_days(days: pd.DataFrame, effort: pd.DataFrame) -> pd.DataFrame:
     """The counted days with birds, mostly timed to the hour: `date` and `hourly` (hours counted in
-    each local clock hour)."""
+    each solar hour)."""
     d = days.loc[(days["count"] > 0) & (days["timed"] >= PROFILE_MIN_TIMED), "date"]
     counted = effort[(effort["state"] == "counted") & effort["date"].isin(d)]
     return counted[["date", "hourly"]]
@@ -62,7 +62,7 @@ def pooled_share(birds: np.ndarray, hours: np.ndarray) -> np.ndarray | None:
 
 
 def mean_hour(birds: np.ndarray, hours: np.ndarray) -> float:
-    """Mean passage hour (the middle of the clock hour) of the pooled rates."""
+    """Mean passage hour (the middle of the solar hour) of the pooled rates."""
     p = pooled_share(birds, hours)
     return float((p * (np.arange(HOURS) + 0.5)).sum()) if p is not None else np.nan
 

@@ -35,7 +35,7 @@ contract, unchanged.
 
 **Effort-adjusted values use a time-of-day profile, not birds per hour.** A taxon's profile
 p(h | doy) is fitted with the model's own ratio GAM (`defile_explore.timeofday.fit_ratio_surface`, one
-implementation) on local clock hours, from days timed to the hour; a counted day's coverage `c` is
+implementation) on solar hours (local clock hours until 2026-10-09, see below), from days timed to the hour; a counted day's coverage `c` is
 the share of the profile in the hours counted, the adjusted day is count / c, and the annual index
 is Σ birds / Σ c over counted days in the window (a ratio estimator, so low-coverage days do not
 dominate). Taxa with fewer than 500 timed birds use a group profile (raptors, pigeons,
@@ -267,9 +267,39 @@ passage), with a 95% interval from resampling days within each part, so one larg
 make it look certain. The matrix is shown when the interval excludes zero and the shift is at
 least 1 h: 19 of the 86 full-tier taxa, nearly all late taxa passing earlier on the clock
 (Chaffinch -1.9 h, Red Kite -1.6 h), plus Great Cormorant, Barn Swallow and Black-headed Gull
-passing later. Measured in clock time on purpose: the end of summer time in late October and later
+passing later. Superseded by solar time (`daytime@3`, next entry). Measured in clock time on purpose: the end of summer time in late October and later
 sunrises explain much of it, but a visitor reads a clock. A shift that is clear but under an hour
 (Common Buzzard -0.7 h, Sparrowhawk -0.8 h) stays one histogram.
+
+**Every hour of the day is solar time, not clock time (2026-10-09, decided by the user;
+`DEFINITIONS_VERSION` 2, `daytime@3`).** Hour 12 starts at the sun's transit over Defile
+(`export.solar_shift`: the zone's offset, less the longitude and the equation of time); days stay
+local calendar dates. On the clock the transit moves from 13:43 (1 Aug) to 12:20 (3 Nov), with a
+1 h step when summer time ends, in late October, at the peak of Wood Pigeon and Chaffinch passage.
+The profile GAM, with 4 splines over the season, cannot draw that step. Comparing the mean passage
+time of each timed day in four time bases (share of its spread explained by the season, lower is
+steadier): Red Kite 0.18 by clock, 0.03 solar, 0.21 hours after sunrise, 0.03 share of daylight;
+Common Buzzard 0.21 / 0.03 / 0.23 / 0.04; Sparrowhawk 0.12 / 0.03 / 0.14 / 0.02; Wood Pigeon
+0.06 / 0.01 / 0.04 / 0.02; Chaffinch 0.13 / 0.09 / 0.10 / 0.08; only Great Cormorant is steadier
+after sunrise. Solar time and the share of daylight tie; solar time keeps hours as units.
+
+- Effort (`hourly`) is split into solar hours from the survey intervals; a count timed to an
+  interval (an hour-by-hour sheet) is spread over the solar hours it overlaps, a point time falls
+  in its hour, so counts and effort are binned alike. `hours` is the counted duration, night
+  included. A survey of up to an hour now times its counts even across a clock hour.
+- On the 2026-10 release, against a clock-time build of the same code: the gap benchmark's paired
+  median change is -0.003 (mean 0.184 -> 0.170; 27 taxa better, 18 worse; Eurasian Curlew 1.17 ->
+  0.75, Greylag Goose 0.57 -> 0.23, Alpine Swift 0.59 -> 0.32; Whimbrel 1.01 -> 1.18). Annual
+  indices move 1.5% for the median taxon, up to 15-19% for Common Crane, Skylark, Greylag Goose,
+  Blue Tit, Chaffinch. Totals hidden 7 -> 5, trends shown 38 -> 41; Yellow-legged Gull's season
+  becomes hidden.
+- `daytime` still shows 15 taxa by date, a different 15: the summer-time artefacts go (Wood Pigeon
+  -1.5 -> -0.4 h, Merlin, Siskin, Hawfinch, Blue Tit, Greenfinch, Honey Buzzard), and morning
+  migrants passing later in solar time as sunrise moves later appear (finch sp. +2.6 h, Redwing
+  +1.7, Grey Wagtail +1.6, Hen Harrier +1.1). Best hours move about an hour earlier in their
+  numbers (Red Kite 11-16 solar, was 12-17 clock).
+- A page wanting the clock adds the day's `solar_shift`: about 1.6 h in summer time, 0.5 h in
+  winter time.
 
 **Age and sex: shares among the birds given one, only in usable years.** A year is usable with at
 least 20 birds aged (or sexed), 5% of those counted, and both classes recorded (`demography@2`),
@@ -380,7 +410,7 @@ Both windows are settings, overridable as `[MM-DD, MM-DD]` with a reason.
 
 **Key numbers** are read from the blocks, not computed apart: the main passage is the smooth
 season's 10-90% in the last year (else the pooled counted seasons of the last 10), best hours the
-fewest clock hours holding 60% of the profile on the median passage day, the typical season the
+fewest solar hours holding 60% of the profile on the median passage day, the typical season the
 median of the last 10 gap-filled totals, the trend the smooth's change from the start year, the
 chance the share of well-counted days in the main passage with at least 1 or 10 birds.
 
