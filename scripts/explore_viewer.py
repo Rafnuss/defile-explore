@@ -56,10 +56,11 @@ td.n{text-align:right}
 """
 
 
-def doy_label(doy) -> str:
+def doy_label(doy, fmt: str = "%d %b") -> str:
+    """A (non-leap) day of year as a date; `"%d-%b"` for hovers."""
     import datetime as dt
 
-    return (dt.date(2025, 1, 1) + dt.timedelta(days=int(round(doy)) - 1)).strftime("%d %b")
+    return (dt.date(2025, 1, 1) + dt.timedelta(days=int(round(doy)) - 1)).strftime(fmt)
 
 
 def doy_of(mmdd: str) -> int:
@@ -77,8 +78,8 @@ def arr(x):
     return np.array([np.nan if v is None else v for v in x], float)
 
 
-def panel(fig, title, note=""):
-    fig.update_layout(template="plotly_white", margin=dict(l=50, r=20, t=40, b=40),
+def panel(fig, title, note="", top=40):
+    fig.update_layout(template="plotly_white", margin=dict(l=50, r=20, t=top, b=40),
                       title=dict(text=title, font=dict(size=14)))  # fmt: skip
     return (
         '<div class="panel">'
@@ -188,9 +189,14 @@ def season_panel(sp: dict) -> str:
     s = sp["season"]
     share = np.array([[np.nan if v is None else v for v in row] for row in s["share"]], float)
     zmax = float(np.nanquantile(share, 0.98)) if np.isfinite(share).any() else 1
+    count = [[None if v is None else f"{v:,.0f}" for v in row] for row in s["count"]]
+    dates = [doy_label(x, "%d-%b") for x in s["doy"]]
+    custom = [[[dates[j], count[i][j]] for j in range(len(dates))] for i in range(len(count))]
     fig = go.Figure(go.Heatmap(x=s["doy"], y=s["years"], z=share, zmin=0, zmax=zmax,
                                colorscale="YlOrRd", colorbar=dict(title="share<br>of year"),
-                               hovertemplate="%{y}, day %{x}: %{z:.1%}<extra></extra>"))  # fmt: skip
+                               customdata=custom,
+                               hovertemplate="%{customdata[0]} %{y}: %{customdata[1]} birds "
+                                             "(%{z:.1%} of the season)<extra></extra>"))  # fmt: skip
     p = {k: arr([r[k] for r in s["passage"]]) for k in s["passage"][0]}
     smooth = sp["trend"]["passage_q"] if sp["trend"] else None
     for col, dash, lab in (("q10", "dot", "10%"), ("q50", "solid", "50%"), ("q90", "dot", "90%")):
@@ -240,26 +246,44 @@ def chances_panel(sp: dict) -> str:
 
 def daytime_panel(sp: dict) -> str:
     d = sp["daytime"]
-    if not d or not len(d["doy"]):
+    if not d or d["hours"] is None:
         return "<p class='note'>No days timed to the hour.</p>"
-    share = np.array([[np.nan if v is None else v for v in row] for row in d["share"]], float)
-    fig = make_subplots(rows=1, cols=2, column_widths=[0.6, 0.4], horizontal_spacing=0.1,
-                        subplot_titles=("by date (counted)", "by part of the season"))  # fmt: skip
-    fig.add_trace(go.Heatmap(x=d["doy"], y=list(range(24)), z=share.T, colorscale="YlOrRd",
-                             showscale=False), 1, 1)  # fmt: skip
-    for i, p in enumerate(d["parts"]):
-        if p["counted"] is not None:
-            fig.add_trace(go.Bar(x=list(range(24)), y=p["counted"], opacity=0.55,
-                                 marker_color=COLORS[i], name=f"{p['label']} — counted"), 1, 2)  # fmt: skip
-        fig.add_trace(go.Scatter(x=list(range(24)), y=p["profile"], line=dict(color=COLORS[i]),
-                                 name=f"{p['label']} — smooth profile"), 1, 2)  # fmt: skip
-    doy_axis(fig, 1, 1)
-    fig.update_yaxes(title="local hour", range=[5.5, 20.5], row=1, col=1)
-    fig.update_xaxes(range=[5.5, 20.5], title="local hour", row=1, col=2)
-    fig.update_yaxes(tickformat=".0%", row=1, col=2)
-    fig.update_layout(height=FIG_H, barmode="overlay")
+    ch = d["change"]
+    hist = [go.Bar(x=list(range(24)), y=d["hours"], marker_color="rgba(76,120,168,0.6)",
+                   name="counted", hovertemplate="%{x}:00-%{x}:59: %{y:.1%}<extra></extra>")]  # fmt: skip
+    if d["profile"] is not None:
+        hist.append(go.Scatter(x=list(range(24)), y=d["profile"], line=dict(color="black"),
+                               name="smooth profile (main passage)"))  # fmt: skip
+    if ch["show"]:
+        share = np.array([[np.nan if v is None else v for v in r] for r in d["share"]], float)
+        fig = make_subplots(rows=1, cols=2, column_widths=[0.6, 0.4], horizontal_spacing=0.1,
+                            subplot_titles=("by date (counted)", "whole season"))  # fmt: skip
+        fig.add_trace(go.Heatmap(x=d["doy"], y=list(range(24)), z=share.T, colorscale="YlOrRd",
+                                 showscale=False, customdata=[[doy_label(x, "%d-%b") for x in d["doy"]]] * 24,
+                                 hovertemplate="%{customdata}, %{y}:00: %{z:.1%}<extra></extra>"),
+                      1, 1)  # fmt: skip
+        for t in hist:
+            fig.add_trace(t, 1, 2)
+        doy_axis(fig, 1, 1)
+        fig.update_yaxes(title="local hour", range=[5.5, 20.5], row=1, col=1)
+        fig.update_xaxes(range=[5.5, 20.5], title="local hour", row=1, col=2)
+        fig.update_yaxes(tickformat=".0%", row=1, col=2)
+        fig.update_annotations(yshift=6, font_size=12)
+    else:
+        fig = go.Figure(hist)
+        fig.update_xaxes(range=[5.5, 20.5], title="local hour", dtick=1)
+        fig.update_yaxes(tickformat=".0%", title="share of the day's birds")
+    fig.update_layout(height=FIG_H, bargap=0.05)
+    if "shift" in ch:
+        change = (f"Late minus early season mean passage hour: {ch['shift']:+.1f} h "
+                  f"(95% {ch['lo']:+.1f} to {ch['hi']:+.1f}, {ch['days'][0]} and {ch['days'][1]} "
+                  f"days): {'shown by date' if ch['show'] else 'one histogram'}.")  # fmt: skip
+    else:
+        change = f"Change not tested (timed days early/late: {ch['days'][0]}/{ch['days'][1]})."
     return panel(fig, f"Passage during the day ({d['years'][0]}–{d['years'][1]}, {d['days']} "
-                      f"days timed)" + method(d))  # fmt: skip
+                      f"days timed)" + method(d),
+                 "Bars: birds per counted hour, as shares, pooled over the season. " + change,
+                 top=75 if ch["show"] else 40)  # fmt: skip
 
 
 def age_panel(sp: dict) -> str:
@@ -321,14 +345,7 @@ def records_panel(sp: dict) -> str:
     )
     table = (f"<div class='panel'><b>Top days</b><table><tr><th>#</th><th>date</th><th>birds"
              f"</th><th>coverage</th></tr>{rows}</table></div>")  # fmt: skip
-    a = [r for r in sp["annual"] if r["max"] is not None]
-    fig = go.Figure(go.Scatter(x=[r["year"] for r in a], y=[r["max"] for r in a],
-                               mode="markers+lines", line=dict(color="#ccc"),
-                               customdata=[r["max_date"] for r in a],
-                               hovertemplate="%{x}: %{y:,.0f} on %{customdata}<extra></extra>"))  # fmt: skip
-    fig.update_yaxes(type="log", title="birds")
-    fig.update_layout(height=FIG_H - 60)
-    return table + panel(fig, "Best day of each year")
+    return table
 
 
 # --- pages ------------------------------------------------------------------------------------

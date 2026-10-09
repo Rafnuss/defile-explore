@@ -139,6 +139,35 @@ def test_hour_rates_divide_birds_by_the_hours_counted():
     assert rate[10] == 3 and rate[11] == 6
 
 
+def timed(n_days: int, early_hour: int, late_hour: int):
+    """`n_days` early (doy 200..) and `n_days` late (doy 300..) timed days, counted 6-18 h, the
+    birds at one hour, with a little noise one hour later."""
+    rng = np.random.default_rng(1)
+    hours = np.zeros((2 * n_days, 24))
+    hours[:, 6:18] = 1
+    birds = np.zeros((2 * n_days, 24))
+    for i in range(2 * n_days):
+        h = early_hour if i < n_days else late_hour
+        birds[i, h], birds[i, h + 1] = rng.integers(20, 40), rng.integers(0, 5)
+    doy = np.r_[200 + np.arange(n_days), 300 + np.arange(n_days)]
+    return birds, hours, doy
+
+
+def test_a_clear_change_in_the_passage_hour_shows_the_matrix():
+    c = Y.seasonal_change(*timed(20, 8, 11), [200, 250, 300, 350])
+    assert c["show"] and c["shift"] == pytest.approx(3, abs=0.2) and c["lo"] > 0
+
+
+def test_the_same_passage_hour_all_season_shows_one_histogram():
+    c = Y.seasonal_change(*timed(20, 9, 9), [200, 250, 300, 350])
+    assert not c["show"] and abs(c["shift"]) < 0.3
+
+
+def test_too_few_days_are_not_tested():
+    c = Y.seasonal_change(*timed(3, 8, 12), [200, 250, 300, 350])
+    assert not c["show"] and "shift" not in c
+
+
 # --- demography --------------------------------------------------------------------------------
 
 

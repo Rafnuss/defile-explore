@@ -76,8 +76,8 @@ def chances(frame: pd.DataFrame, last_year: int) -> dict:
 
 
 def season_block(frame: pd.DataFrame, last_year: int, model_window=None) -> dict:
-    """The `season` block of a species file: `years` x `doy` shares of the year's birds (null =
-    not counted), each year's passage dates, and the chances.
+    """The `season` block of a species file: `years` x `doy` shares of the year's birds and the
+    birds counted (`count`; both null = not counted), each year's passage dates, and the chances.
 
     `frame` spans the view window; the year's total and its passage dates are of the model window
     (`model_window`, season days; all of `frame` if None), where enough years are counted for the
@@ -91,11 +91,13 @@ def season_block(frame: pd.DataFrame, last_year: int, model_window=None) -> dict
     else:
         passage = year_passage(rate, filled)
     share = rate.div(filled.sum(axis=1).where(lambda t: t > 0), axis=0)
+    count = frame.pivot(index="year", columns="doy", values="y").where(rate.notna())
     return {
         "method": METHOD,
         "years": rate.index.to_numpy(),
         "doy": rate.columns.to_numpy(),
         "share": share.to_numpy(),
+        "count": count.to_numpy(),
         "passage": passage,
         "chances": chances(frame, last_year),
     }

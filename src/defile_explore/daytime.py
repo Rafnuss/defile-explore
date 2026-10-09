@@ -5,6 +5,14 @@ The rate of an hour is the birds timed to it over the hours counted in it, poole
 a period, so hours counted less often weigh less, not zero. Only days with birds and at least
 `PROFILE_MIN_TIMED` of them timed are used (the profile's own sample), from whenever the counts are
 timed (2014 on). Shares are of the period's summed hourly rates.
+
+The block gives one histogram for the whole season (`hours`), and the date x hour matrix only where
+the passage hour changes through the season (`change`): the late part's mean passage hour minus the
+early part's (`PART_QUANTILES` of the passage), with a 95% interval from resampling days, so a
+single flock cannot make a change look certain. `change.show` when the interval excludes zero and
+the shift is at least `SHIFT_MIN_HOURS`. In clock time, the hour the page shows: the end of summer
+time (late October) and later sunrises move late taxa about an hour earlier on the clock, a change
+a visitor needs to know about whatever its cause.
 """
 
 import numpy as np
@@ -13,12 +21,15 @@ import pandas as pd
 from defile_explore.export import HOURS
 from defile_explore.profile import PROFILE_DOY, PROFILE_MIN_TIMED
 
-METHOD = "daytime@1"
+METHOD = "daytime@2"
 PENTAD = 5  # days per period of the date x hour grid
 MIN_HOUR_EFFORT = 3.0  # counted hours below which an hour's rate in a period is not shown
 MIN_PERIOD_BIRDS = 30  # timed birds below which a period's column is not shown
 PART_QUANTILES = (0.1, 0.35, 0.65, 0.9)  # early / peak / late: between these passage shares
-PART_LABELS = ("early", "peak", "late")
+MIN_PART_DAYS = 5  # timed days in the early and the late part for the change to be tested
+SHIFT_MIN_HOURS = 1.0  # a change in the mean passage hour smaller than this is not shown
+BOOTSTRAP = 400  # resamples of days for the change's interval
+SEED = 0
 
 
 def timed_days(days: pd.DataFrame, effort: pd.DataFrame) -> pd.DataFrame:
@@ -44,6 +55,43 @@ def hour_rates(hourly: pd.DataFrame, sample: pd.DataFrame, key: pd.Series) -> tu
     return birds, hours
 
 
+def pooled_share(birds: np.ndarray, hours: np.ndarray) -> np.ndarray | None:
+    """Share per hour of the pooled rates `birds / hours` (hours under `MIN_HOUR_EFFORT`: 0)."""
+    r = np.where(hours >= MIN_HOUR_EFFORT, birds / np.maximum(hours, 1e-9), 0.0)
+    return r / r.sum() if r.sum() > 0 else None
+
+
+def mean_hour(birds: np.ndarray, hours: np.ndarray) -> float:
+    """Mean passage hour (the middle of the clock hour) of the pooled rates."""
+    p = pooled_share(birds, hours)
+    return float((p * (np.arange(HOURS) + 0.5)).sum()) if p is not None else np.nan
+
+
+def seasonal_change(birds: np.ndarray, hours: np.ndarray, doy: np.ndarray, parts_doy) -> dict:
+    """Late minus early mean passage hour with a 95% interval from resampling days within each
+    part; `birds`, `hours`: one row per timed day."""
+    early = np.flatnonzero((doy >= parts_doy[0]) & (doy < parts_doy[1]))
+    late = np.flatnonzero((doy >= parts_doy[2]) & (doy < parts_doy[3]))
+    out = {"days": [len(early), len(late)], "show": False}
+    if min(len(early), len(late)) < MIN_PART_DAYS:
+        return out
+    m_early = mean_hour(birds[early].sum(0), hours[early].sum(0))
+    m_late = mean_hour(birds[late].sum(0), hours[late].sum(0))
+    rng = np.random.default_rng(SEED)
+    shifts = []
+    for _ in range(BOOTSTRAP):
+        a, b = rng.choice(early, len(early)), rng.choice(late, len(late))
+        shifts.append(
+            mean_hour(birds[b].sum(0), hours[b].sum(0))
+            - mean_hour(birds[a].sum(0), hours[a].sum(0))
+        )
+    lo, hi = np.nanpercentile(shifts, [2.5, 97.5])
+    shift = m_late - m_early
+    out |= {"early": m_early, "late": m_late, "shift": shift, "lo": float(lo), "hi": float(hi)}
+    out["show"] = bool((lo > 0 or hi < 0) and abs(shift) >= SHIFT_MIN_HOURS)
+    return out
+
+
 def daytime_block(
     days: pd.DataFrame,
     hourly: pd.DataFrame,
@@ -51,9 +99,10 @@ def daytime_block(
     profile: np.ndarray,
     parts_doy: list[float] | None,
 ) -> dict | None:
-    """The `daytime` block: the date x hour grid of shares and, for the early, peak and late season
-    (`parts_doy`: the days of year at `PART_QUANTILES` of the passage), the counted shares per hour
-    beside the profile averaged over those days.
+    """The `daytime` block: the counted share per hour over the whole season (`hours`) beside the
+    smooth profile averaged over the main passage (`parts_doy`: the days of year at
+    `PART_QUANTILES` of the passage), the date x hour grid of shares, and whether it changes enough
+    to be shown (`change`).
 
     None without timed days.
     """
@@ -61,34 +110,26 @@ def daytime_block(
     if sample.empty:
         return None
     doy = sample["date"].dt.dayofyear
+    per_day, day_hours = hour_rates(hourly, sample, pd.Series(np.arange(len(sample))))
+    b, h = per_day.to_numpy(), day_hours.to_numpy()
     birds, hours = hour_rates(hourly, sample, (doy // PENTAD) * PENTAD)
     rate = birds / hours.where(hours >= MIN_HOUR_EFFORT)
     share = rate.div(rate.sum(axis=1), axis=0)[birds.sum(axis=1) >= MIN_PERIOD_BIRDS]
+    total = pooled_share(b.sum(0), h.sum(0))
     out = {
         "method": METHOD,
         "years": [int(sample["date"].dt.year.min()), int(sample["date"].dt.year.max())],
         "days": len(sample),
-        "birds": float(birds.to_numpy().sum()),
+        "birds": float(b.sum()),
+        "hours": total,
+        "profile": None,
         "doy": share.index + PENTAD / 2,
         "share": share.to_numpy(),
-        "parts": [],
+        "change": {"days": [0, 0], "show": False},
     }
     if parts_doy is None:
         return out
-    for label, lo, hi in zip(PART_LABELS, parts_doy[:-1], parts_doy[1:]):
-        sel = (doy >= lo) & (doy < hi)
-        if not sel.any():
-            continue
-        b, h = hour_rates(hourly, sample[sel.to_numpy()], pd.Series(0, index=sample.index[sel]))
-        r = (b.iloc[0] / h.iloc[0].where(h.iloc[0] >= MIN_HOUR_EFFORT)).fillna(0)
-        rows = np.clip(np.arange(round(lo), round(hi)), *PROFILE_DOY) - PROFILE_DOY[0]
-        out["parts"].append(
-            {
-                "label": label,
-                "doy": [lo, hi],
-                "birds": float(b.to_numpy().sum()),
-                "counted": (r / r.sum()).to_numpy() if r.sum() > 0 else None,
-                "profile": profile[rows].mean(axis=0),
-            }
-        )
+    rows = np.clip(np.arange(round(parts_doy[0]), round(parts_doy[-1]) + 1), *PROFILE_DOY)
+    out["profile"] = profile[rows - PROFILE_DOY[0]].mean(axis=0)
+    out["change"] = seasonal_change(b, h, doy.to_numpy(), parts_doy)
     return out

@@ -251,16 +251,25 @@ page will have one section per method, and a version bump says that what a block
 **The season as counted: shares of each year's birds per day, gaps filled only for the total.** A
 day's rate is birds per full counted day (`y / c`, not below `COVERAGE_MIN`); its share divides by
 the year's total, where uncounted days are linearly interpolated between counted ones. The cells
-shown are counted days only. Each year's 10/50/90% passage dates come from the same filled
-series, with the share of the window counted, so the viewer can fade years with long gaps. The
+shown are counted days only, each with its birds counted (`count`) for the hover. Each year's
+10/50/90% passage dates come from the same filled series, with the share of the window counted, so
+the viewer can fade years with long gaps. The
 smooth dates (the GAM's season without the year's level and episodes, `trend.passage_quantiles`)
 are drawn over them.
 
-**Time of day: birds per counted hour, pooled over the days of a period.** Only days with birds
-and at least `PROFILE_MIN_TIMED` of them timed (the profile's own sample), so hours counted less
-often weigh less, not zero; an hour counted under 3 h in a period, or a period with under 30 timed
-birds, is not shown. Early, peak and late are between the 10/35/65/90% passage dates of the
-smooth season (or the pooled counted seasons without a trend).
+**Time of day: one histogram for the season, the date x hour matrix only where the hour changes**
+(`daytime@2`, decided by the user: simpler, and a change shown only when there is one). Bars are
+birds per counted hour as shares, pooled over every timed day (days with birds and at least
+`PROFILE_MIN_TIMED` of them timed, so hours counted less often weigh less, not zero; an hour
+counted under 3 h is left out), beside the smooth profile averaged over the main passage. The
+change is the late part's mean passage hour minus the early part's (10-35% and 65-90% of the
+passage), with a 95% interval from resampling days within each part, so one large flock cannot
+make it look certain. The matrix is shown when the interval excludes zero and the shift is at
+least 1 h: 19 of the 86 full-tier taxa, nearly all late taxa passing earlier on the clock
+(Chaffinch -1.9 h, Red Kite -1.6 h), plus Great Cormorant, Barn Swallow and Black-headed Gull
+passing later. Measured in clock time on purpose: the end of summer time in late October and later
+sunrises explain much of it, but a visitor reads a clock. A shift that is clear but under an hour
+(Common Buzzard -0.7 h, Sparrowhawk -0.8 h) stays one histogram.
 
 **Age and sex: shares among the birds given one, only in usable years.** A year is usable with at
 least 20 birds aged (or sexed), 5% of those counted, and both classes recorded (`demography@2`),

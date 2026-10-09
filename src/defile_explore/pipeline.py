@@ -304,6 +304,7 @@ def diagnostics(job, frame, trend, daytime, age, window) -> dict:
         "profile": job["profile_source"],
         "coverage_recent": float(recent["c"].mean()) if len(recent) else None,
         "timed_days": daytime["days"] if daytime else 0,
+        "daytime_shift": daytime["change"].get("shift") if daytime else None,
         "age_years": len(age["years"]) if age else 0,
     }
     flags = []
