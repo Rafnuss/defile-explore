@@ -21,13 +21,15 @@ import argparse
 import html
 import json
 import os
+import re
 
 import numpy as np
 import plotly
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from defile_explore.reliability import ELEMENTS
+from defile_explore.pipeline import KEY_YEARS
+from defile_explore.reliability import CLASSES, ELEMENTS, FILL_ERROR, INTERVAL_RATIO, MIN_TRIALS
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COLORS = ["#4C78A8", "#F58518", "#54A24B", "#B279A2", "#E45756"]
@@ -69,6 +71,10 @@ td{vertical-align:top}
 .vis{font-size:12px;margin:2px 4px 6px;padding:4px 6px;background:#f6f6f6;border-radius:4px}
 .vis b{color:#555}.why{color:#888;font-size:11px}
 .toc{font-size:12px;margin:4px 0 8px}.toc a{color:#4C78A8}
+#qa th{cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:37px;background:#fff}
+#qa th[data-dir=asc]::after{content:" ▲"}#qa th[data-dir=desc]::after{content:" ▼"}
+dl.cols{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;font-size:13px;margin:4px}
+dl.cols dt{font-weight:600}dl.cols dd{margin:0;color:#444}
 """
 
 
@@ -846,9 +852,111 @@ def wrap(title: str, body: str) -> str:
 {html.escape(title)}</nav>{body}</body></html>"""
 
 
-def gap_error(sp: dict) -> str:
+def gap_error(sp: dict) -> float | None:
     g = (sp.get("benchmark") or {}).get("gap")
-    return format(g["abs_log_err"], ".3f") if g else ""
+    return g["abs_log_err"] if g else None
+
+
+INDEX_COLUMNS = (  # header, definition: the index's tooltips and its legend
+    ("taxon", "English name; links to the taxon's page."),
+    (
+        "group",
+        "The species picker's group in defileViz (`taxa.json` `group`, by order). ★: in "
+        "the default highlight list (`content/highlights.tsv`).",
+    ),
+    (
+        "story",
+        "How much of the defileViz page rests on the trend model: full (trend totals "
+        "shown), caveat (shown with a caveat), counts (no trend, or its totals hidden: counts only).",
+    ),
+    ("from", "Start year (`settings.start_year`): nothing before it is adjusted or modelled."),
+    ("birds", "All birds of this taxon ever counted, summed over every counted day."),
+    (
+        "profile",
+        "Time-of-day profile used for coverage: own (fitted on this taxon's hourly "
+        "counts), a group's (borrowed from similar taxa) or uniform (no profile).",
+    ),
+    (
+        "coverage",
+        f"Mean coverage c over the counted days of the last {KEY_YEARS} seasons: the "
+        "share of the day's expected passage that was counted (1 = the whole day).",
+    ),
+    (
+        "q90/q10",
+        "Median over years of the gap-filled season total's q90 / q10: how wide the "
+        f"trend's 80% intervals are. Above {INTERVAL_RATIO:g}: flag wide_intervals. Blank: no trend.",
+    ),
+    (
+        "timed days",
+        "Counted days with birds whose counts are timed to the hour: the sample of "
+        "the time-of-day panel. 0: flag no_timed_days.",
+    ),
+    ("age yrs", "Number of years with enough birds aged to show the age block."),
+    (
+        "change",
+        "Change of the smooth season total from the first to the last year of the trend "
+        "(key_numbers.trend). Blank: no trend.",
+    ),
+    (
+        "totals",
+        "Reliability class of the gap-filled season totals (show / caveat / hide), from the "
+        "gap benchmark, the share of each year filled and the interval widths. Sorts by severity.",
+    ),
+    (
+        "trend",
+        "Reliability class of the long-term trend (the smooth total): needs the totals, "
+        "and a 95% band that is not too wide.",
+    ),
+    (
+        "season",
+        "Reliability class of the passage dates: width of their 80% bands, birds behind "
+        "them, passage beyond the counting window.",
+    ),
+    (
+        "gap error",
+        "Gap benchmark: counted stretches are hidden and refilled by the trend model; "
+        "median |log((estimate+1)/(counted+1))| over the trials. Caveat above "
+        f"{FILL_ERROR[0]:g}, hide above {FILL_ERROR[1]:g} (with at least {MIN_TRIALS} trials). "
+        "0.1 is about 10% off.",
+    ),
+    (
+        "flags",
+        "Diagnostics that may make the page misleading: borrowed_profile, "
+        "passage_beyond_counting (much of the passage falls where counting thins out), "
+        "wide_intervals, no_timed_days. Sorts by number of flags.",
+    ),
+)
+INDEX_JS = """
+const t = document.getElementById('qa'), body = t.tBodies[0], qf = document.getElementById('qf');
+const key = (td) => {
+  const v = td.dataset.v !== undefined ? td.dataset.v : td.textContent.trim();
+  return v === '' ? null : (isNaN(v) ? v.toLowerCase() : +v);
+};
+t.querySelectorAll('th').forEach((th, i) => th.addEventListener('click', () => {
+  const dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
+  t.querySelectorAll('th').forEach((h) => delete h.dataset.dir);
+  th.dataset.dir = dir;
+  const s = dir === 'asc' ? 1 : -1;
+  [...body.rows].sort((a, b) => {
+    const x = key(a.cells[i]), y = key(b.cells[i]);
+    if (x === null || y === null) return (x === null) - (y === null);  // blanks last
+    return (x < y ? -1 : x > y ? 1 : 0) * s;
+  }).forEach((r) => body.appendChild(r));
+}));
+const count = () => {
+  const n = [...body.rows].filter((r) => !r.hidden).length;
+  document.getElementById('qn').textContent = n + ' / ' + body.rows.length + ' rows';
+};
+qf.addEventListener('input', () => {
+  const words = qf.value.toLowerCase().split(/\\s+/).filter(Boolean);
+  for (const r of body.rows) {
+    const text = r.textContent.toLowerCase();
+    r.hidden = !words.every((w) => text.includes(w));
+  }
+  count();
+});
+count();
+"""
 
 
 def index(taxa: list, species: dict) -> str:
@@ -860,31 +968,59 @@ def index(taxa: list, species: dict) -> str:
         d, k = sp["diagnostics"], sp["key_numbers"]
         rows.append((len(d["flags"]), tx, d, k, sp))
     rows.sort(key=lambda r: (-(r[1]["tier"] == "full"), -r[0], r[1]["english_name"]))
+
+    def claim(sp, c):
+        if not sp.get("reliability"):
+            return "<td data-v=''></td>"
+        cls = sp["reliability"][c]["class"]
+        return f"<td data-v='{CLASSES.index(cls)}'>{badge(cls)}</td>"
+
+    def num(v, fmt):
+        return (
+            f"<td class='n' data-v='{'' if v is None else v}'>"
+            + ("" if v is None else format(v, fmt))
+            + "</td>"
+        )
+
     cells = "".join(
         f"<tr><td><a href='{tx['taxon_id']}.html'>{html.escape(tx['english_name'])}</a></td>"
-        f"<td>{tx['tier']}</td><td>{tx.get('group', '')}{' ★' if tx.get('highlight') else ''}</td>"
+        f"<td>{tx.get('group', '')}{' ★' if tx.get('highlight') else ''}</td>"
         f"<td>{tx.get('story') or ''}</td>"
-        f"<td>{tx['start_year']}</td><td class='n'>{tx['birds'] or 0:,.0f}</td>"
-        f"<td>{d['profile']}</td>"
-        f"<td class='n'>{'' if d['coverage_recent'] is None else format(d['coverage_recent'], '.2f')}</td>"
-        f"<td class='n'>{d.get('interval_ratio', '') and format(d.get('interval_ratio'), '.2f')}</td>"
-        f"<td class='n'>{d['timed_days']}</td><td class='n'>{d['age_years']}</td>"
-        f"<td>{'' if 'trend' not in k else format(k['trend']['change'], '+.0%')}</td>"
-        + "".join(
-            f"<td>{badge(sp['reliability'][c]['class'])}</td>"
-            if sp.get("reliability")
-            else "<td></td>"
-            for c in CLAIMS
-        )
-        + f"<td class='n'>{gap_error(sp)}</td>"
-        f"<td>{''.join(f'<span class=flag>{f}</span>' for f in d['flags'])}</td></tr>"
+        + num(tx["start_year"], "d")
+        + num(tx["birds"] or 0, ",.0f")
+        + f"<td>{d['profile']}</td>"
+        + num(d["coverage_recent"], ".2f")
+        + num(d.get("interval_ratio"), ".2f")
+        + num(d["timed_days"], "d")
+        + num(d["age_years"], "d")
+        + num(k["trend"]["change"] if "trend" in k else None, "+.0%")
+        + "".join(claim(sp, c) for c in CLAIMS)
+        + num(gap_error(sp), ".3f")
+        + f"<td data-v='{len(d['flags'])}'>"
+        f"{''.join(f'<span class=flag>{f}</span>' for f in d['flags'])}</td></tr>"
         for _, tx, d, k, sp in rows
     )
-    head = ("<tr><th>taxon</th><th>tier</th><th>group (★ highlight)</th><th>story</th><th>from</th><th>birds</th><th>profile</th>"
-            "<th>coverage</th><th>q90/q10</th><th>timed days</th><th>age yrs</th><th>trend</th>"
-            "<th>totals</th><th>trend</th><th>season</th><th>gap error</th><th>flags</th></tr>")  # fmt: skip
-    return wrap("index", f"<section><h2>Explore QA ({len(rows)} taxa)</h2><div class='panel'>"
-                         f"<table>{head}{cells}</table></div></section>")  # fmt: skip
+    head = (
+        "<tr>"
+        + "".join(
+            f"<th title='{html.escape(doc.replace('`', ''), quote=True)}'>{html.escape(name)}</th>"
+            for name, doc in INDEX_COLUMNS
+        )
+        + "</tr>"
+    )
+    code = lambda d: re.sub(r"`([^`]+)`", r"<code>\1</code>", html.escape(d))  # noqa: E731
+    legend = "".join(f"<dt>{html.escape(n)}</dt><dd>{code(d)}</dd>" for n, d in INDEX_COLUMNS)
+    body = f"""<section><h2>Explore QA ({len(rows)} taxa)</h2>
+<p class='note'>One row per taxon with a page. Click a column header to sort (again to reverse);
+hover it for what the column means, defined in full below the table. The filter keeps the rows
+whose text contains every word typed (e.g. <code>raptors caveat</code>).</p>
+<input id='qf' type='search' placeholder='filter rows…'
+ style='margin:4px 8px;padding:4px 8px;width:260px;font-size:13px'>
+<span id='qn' class='note'></span>
+<div class='panel'><table id='qa'><thead>{head}</thead><tbody>{cells}</tbody></table></div>
+<h3>Columns</h3><div class='panel'><dl class='cols'>{legend}</dl></div>
+</section><script>{INDEX_JS}</script>"""
+    return wrap("index", body)
 
 
 def main(argv=None) -> int:
