@@ -26,24 +26,23 @@ fit, in detail); the visitors' page is designed in defileViz. What the first ful
   combined series); the season context of the reports (weather, monitoring, results) has no
   account and is no longer exported (`reports.json` is gone).
 
-### Trend reliability classes
+### Trend reliability
 
-When and how to show a trend's uncertainty, and when not to show a trend at all, is not decided.
-Each taxon should get a class per claim, defined here (rule, thresholds, reasons) and exported in
-its species file; defileViz only filters on it. A first proposal, to settle on the viewer:
+The benchmark runs on every trend taxon and each claim is classed (`DECISIONS.md` -> Pipeline,
+`reliability@1`). Open:
 
-- Claims, classed separately: the annual totals, the long-term trend (the smooth and its change
-  over the period), and the season (passage dates and their shift).
-- Classes: `show`, `caveat` (shown with a sentence on why) and `hide`, each with its reasons as
-  codes, so the page can say why and the viewer can list taxa per reason.
-- Inputs already in the export: the width of the yearly intervals (`interval_ratio`, median
-  q90/q10: 1.46 over the 74 trend taxa, above 2.5 for the worst 10%, 420 for one), the share of
-  each year actually counted (`observed_share`), `passage_beyond_counting`, a borrowed time-of-day
-  profile, the number of years, and the protocol changes (2007 passerines, 2014 hourly sheets).
-- Missing and probably decisive: held-out errors per taxon. `scripts/benchmark_trend.py` covers 7
-  taxa; run on all 74 (about 6 s each) and exported, its gap error and interval coverage would
-  class a taxon by how well its fill is actually known rather than by its own intervals.
-- Per year as well as per taxon: a year mostly filled (low `observed_share`) marked as an estimate.
+- Upper bands blown up by all-zero season edges. Where a taxon is counted but never seen (Common
+  Wood Pigeon on 18-25 July), the season spline runs towards minus infinity and the Laplace
+  posterior there is nearly flat: log-scale sd 12-16 on those days against 0.4-0.5 in the passage,
+  so a few draws hold millions of birds. The smooth's q97.5 (Wood Pigeon 2009: 13 million against a
+  median of 29 000) and the gap-filled q97.5 of years with such days uncounted follow. It probably
+  drives most of the 15 `smooth_band` hides and the 12 `wide_intervals`. Fix in the model (bound
+  the season below the passage, a prior on the spline's edge, or sum only days with expected birds)
+  and re-benchmark; the classes then follow by themselves.
+- Review the thresholds on the viewer once that is fixed (index columns totals / trend / season).
+- Passerine trends from 2007 rise 20-140x in some taxa (Common Reed Bunting, Common Linnet):
+  check that identification and recording effort did not grow with them before showing a trend.
+- defileViz: implement the filter and the caveat sentences from the reason codes.
 
 ## Phase 3: methods
 

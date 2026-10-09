@@ -76,11 +76,14 @@ src/defile_explore/
   demography.py  age and sex
   window.py      each taxon's model and view windows
   accounts.py    the written accounts (content/accounts/), checked and cut per taxon
+  remarks.py     what the counters and reports wrote about a day (record days)
+  benchmark.py   each trend tested on its own data: gap transplant, recent seasons
+  reliability.py show / caveat / hide per trend claim, for defileViz to filter on
 content/accounts/  the authored accounts (two TSVs), reading copies and editorial review
 scripts/
   build_explore.py           the export
   explore_viewer.py          QA viewer of the export (HTML, Plotly)
-  benchmark_trend.py         gap-filling benchmark of the trend model (PDF + CSV)
+  benchmark_trend.py         the benchmark with the season-only model beside the GAM (CSV)
   analyse_explore_effort.py  comparison of effort normalisations (PDF)
   accounts/                  editorial exports and checks of content/accounts/
 tests/

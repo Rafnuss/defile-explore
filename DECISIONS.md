@@ -299,6 +299,29 @@ the dataset attached to that day (Red Kite, 14 Oct 2020: the site record of 2 11
 (`details:`) and the dataset's placeholders are dropped; the texts stay in French. Coverage is no
 longer listed: a record is what was counted. The best day of each year is gone too.
 
+**Every trend is benchmarked in the build, and each of its claims classed (`benchmark@1`,
+`reliability@1`).** The gap-transplant test that judged the model on seven taxa now runs on all 74
+trend taxa, on the same years, window and profile as the export (`benchmark.py`, cached with the
+trend; ~1 min more on a full build). Its median error is 0.10 (0.07-0.20 between quartiles); seven
+taxa miss by more than 0.4, all flocking or rare species whose hidden days hold a few big flocks
+(Purple Heron 1.8, Eurasian Curlew 1.4, Whimbrel 1.2, Mediterranean Gull 1.1, Alpine Swift, Greylag
+Goose, Northern Lapwing ~0.6), always too low. Grey Heron has no well-counted target year and is
+untested. Three claims are classed, decided by the user on the proposal:
+
+- `totals`: hidden above 0.4 of gap error; a caveat above 0.15, with 80% intervals holding the truth
+  under 60% of 9+ trials, under 60% of a typical year counted, q90/q10 above 2, or untested (with a
+  borrowed profile as a second reason: the benchmark measures a borrowed profile's error).
+- `trend`: the totals' class, and the smooth's 95% band (median q97.5/q2.5 over the years): a
+  caveat above 4, hidden above 20.
+- `season`: the median passage date's 80% band: a caveat above 10 days, hidden above 30; a caveat
+  when the passage runs past the counted days.
+
+First build: totals 48 show / 19 caveat / 7 hide; trend 26 / 26 / 22 (hides mostly from the band,
+see `DEVELOPMENT.md`); season 25 / 45 / 4 (Song Thrush, Yellowhammer, Redwing, Western Jackdaw).
+The recent-seasons test is exported and drawn but not used: a season's level is not predictable
+from earlier seasons (median error 0.8), which is a forecast question. The year-by-year marking
+(`estimated_years`, under half counted) is for the page to show, not a class.
+
 **Windows per taxon: fitted on a model window, shown over a wider view window, by rule**
 (`window@1`). The default window (18 Jul - 18 Nov) is where 80-100% of years are counted; from
 20 Nov to 1 Dec only about a third are. Late taxa still pass then: Red Kite averages around 120

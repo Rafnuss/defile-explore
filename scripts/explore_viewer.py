@@ -191,6 +191,83 @@ def trend_panel(sp: dict, effort_annual: list) -> str:
                  "Bottom: days counted in the window (all taxa).")  # fmt: skip
 
 
+CLASS_STYLE = {"show": "#e6f4ea;color:#1e6b34", "caveat": "#fff4e0;color:#8a5300",
+               "hide": "#fdecea;color:#b71c1c"}  # fmt: skip
+CLAIMS = ("totals", "trend", "season")
+
+
+def badge(cls: str, text: str | None = None) -> str:
+    return (f"<span class='flag' style='background:{CLASS_STYLE[cls]}'>"
+            f"{html.escape(text or cls)}</span>")  # fmt: skip
+
+
+def reliability_panel(sp: dict) -> str:
+    """The three claims' classes and reasons, and the numbers the rules read."""
+    q = sp.get("reliability")
+    if not q:
+        return ""
+    rows = "".join(
+        f"<tr><td><b>{c}</b></td><td>{badge(q[c]['class'])}</td><td>"
+        + (" ".join(badge(r["level"], r["code"]) for r in q[c]["reasons"]) or "")
+        + "</td></tr>"
+        for c in CLAIMS
+    )
+    est = ", ".join(map(str, q["estimated_years"])) or "none"
+    x = {k: round(v, 3) if isinstance(v, float) else v for k, v in q["inputs"].items()}
+    return (f"<div class='panel'><table><tr><th>claim</th><th>class</th><th>reasons</th></tr>{rows}"
+            f"</table><p class='note'>Mostly estimated years: {est}.<br>{html.escape(json.dumps(x))}"
+            f" [{q['method']}]</p></div>")  # fmt: skip
+
+
+def benchmark_panel(sp: dict) -> str:
+    """Each gap-transplant trial (a well-counted year given an older year's gaps): the fill against
+    the birds it actually counted, with its 80% and 95% intervals; and the recent seasons predicted
+    from the earlier ones."""
+    b = sp.get("benchmark")
+    if not b or not (b["gap"] or b["recent"]):
+        return "<p class='note'>No benchmark.</p>"
+    titles = ("gap transplant: filled vs. counted", "recent seasons: predicted vs. counted")
+    fig = make_subplots(rows=1, cols=2, subplot_titles=titles)
+    for col, key in ((1, "gap_trials"), (2, "recent_trials")):
+        t = b[key]
+        if not t:
+            continue
+        t = {k: arr([r[k] for r in t]) for k in t[0]}
+        x, y = t["truth"], t["estimate"]
+        label = t["target"] if "target" in t else t["year"]
+        for q_lo, q_hi, w in (("q2.5", "q97.5", 1), ("q10", "q90", 3)):
+            fig.add_trace(go.Scatter(x=x, y=y, mode="markers", marker=dict(size=1, color=COLORS[0]),
+                                     error_y=dict(type="data", symmetric=False, array=t[q_hi] - y,
+                                                  arrayminus=y - t[q_lo], width=0, thickness=w,
+                                                  color=COLORS[0]),
+                                     hoverinfo="skip", showlegend=False), 1, col)  # fmt: skip
+        fig.add_trace(go.Scatter(x=x, y=y, mode="markers", marker=dict(color=COLORS[0], size=7),
+                                 customdata=label, showlegend=False,
+                                 hovertemplate="%{customdata}: counted %{x:,.0f}, estimated "
+                                               "%{y:,.0f}<extra></extra>"), 1, col)  # fmt: skip
+        lo, hi = np.nanmin([x.min(), y.min()]), np.nanmax([x.max(), y.max()])
+        fig.add_trace(go.Scatter(x=[lo, hi], y=[lo, hi], mode="lines", showlegend=False,
+                                 line=dict(color="#999", dash="dot")), 1, col)  # fmt: skip
+        fig.update_xaxes(type="log", title="counted", row=1, col=col)
+        fig.update_yaxes(type="log", title="estimated", row=1, col=col)
+    fig.update_layout(height=FIG_H + 20)
+
+    def line(name, s):
+        if not s:
+            return f"{name}: not run"
+        return (f"{name}: error {s['abs_log_err']:.3f}, bias {s['bias']:+.3f}, 80% cover "
+                f"{s['cover80']:.2f}, 95% cover {s['cover95']:.2f} ({s['n']:.0f} trials)")  # fmt: skip
+
+    ratio = b["gap_ratio"]
+    note = "<br>".join([
+        line("Gap fill (GAM)", b["gap"]),
+        f"Ratio estimator: error {ratio['abs_log_err']:.3f}" if ratio else "",
+        line("Recent seasons", b["recent"]),
+        "Error: median |log(estimate / counted)|. Intervals: 80% thick, 95% thin.",
+    ])  # fmt: skip
+    return panel(fig, "Benchmark" + method(b), note, top=75)
+
+
 def season_panel(sp: dict) -> str:
     s = sp["season"]
     share = np.array([[np.nan if v is None else v for v in row] for row in s["share"]], float)
@@ -411,6 +488,7 @@ tier {tx['tier']} · from {tx['start_year']}</small></h2>
 <table><tr><th>setting</th><th>value</th><th>source</th><th>reason</th></tr>{settings}</table></div>
 <h3>Accounts</h3>{accounts_panel(sp)}
 <h3>Trend</h3>{trend_panel(sp, effort_annual) if sp['trend'] else "<p class='note'>No trend.</p>"}
+<h3>Reliability</h3>{reliability_panel(sp) or "<p class='note'>No trend.</p>"}{benchmark_panel(sp) if sp['trend'] else ""}
 <h3>Phenology</h3>{season_panel(sp)}
 <h3>Visiting</h3>{chances_panel(sp)}{daytime_panel(sp)}
 <h3>Age and sex</h3>{demography_panel(sp, "age") + demography_panel(sp, "sex") or "<p class='note'>Not enough birds aged or sexed.</p>"}
@@ -427,6 +505,11 @@ def wrap(title: str, body: str) -> str:
 </head><body><nav><a href="index.html">Explore QA</a> {html.escape(title)}</nav>{body}</body></html>"""
 
 
+def gap_error(sp: dict) -> str:
+    g = (sp.get("benchmark") or {}).get("gap")
+    return format(g["abs_log_err"], ".3f") if g else ""
+
+
 def index(taxa: list, species: dict) -> str:
     rows = []
     for tx in taxa:
@@ -434,7 +517,7 @@ def index(taxa: list, species: dict) -> str:
         if sp is None:
             continue
         d, k = sp["diagnostics"], sp["key_numbers"]
-        rows.append((len(d["flags"]), tx, d, k))
+        rows.append((len(d["flags"]), tx, d, k, sp))
     rows.sort(key=lambda r: (-(r[1]["tier"] == "full"), -r[0], r[1]["english_name"]))
     cells = "".join(
         f"<tr><td><a href='{tx['taxon_id']}.html'>{html.escape(tx['english_name'])}</a></td>"
@@ -444,12 +527,19 @@ def index(taxa: list, species: dict) -> str:
         f"<td class='n'>{d.get('interval_ratio', '') and format(d.get('interval_ratio'), '.2f')}</td>"
         f"<td class='n'>{d['timed_days']}</td><td class='n'>{d['age_years']}</td>"
         f"<td>{'' if 'trend' not in k else format(k['trend']['change'], '+.0%')}</td>"
+        + "".join(
+            f"<td>{badge(sp['reliability'][c]['class'])}</td>"
+            if sp.get("reliability")
+            else "<td></td>"
+            for c in CLAIMS
+        )
+        + f"<td class='n'>{gap_error(sp)}</td>"
         f"<td>{''.join(f'<span class=flag>{f}</span>' for f in d['flags'])}</td></tr>"
-        for _, tx, d, k in rows
+        for _, tx, d, k, sp in rows
     )
     head = ("<tr><th>taxon</th><th>tier</th><th>from</th><th>birds</th><th>profile</th>"
             "<th>coverage</th><th>q90/q10</th><th>timed days</th><th>age yrs</th><th>trend</th>"
-            "<th>flags</th></tr>")  # fmt: skip
+            "<th>totals</th><th>trend</th><th>season</th><th>gap error</th><th>flags</th></tr>")  # fmt: skip
     return wrap("index", f"<section><h2>Explore QA ({len(rows)} taxa)</h2><div class='panel'>"
                          f"<table>{head}{cells}</table></div></section>")  # fmt: skip
 

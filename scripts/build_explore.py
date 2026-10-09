@@ -5,7 +5,7 @@ Reads the release in `data/count/dataset/` (copied there with `--dataset <dir>`)
 `data/explore/`: `manifest.json`, `taxa.json`, `effort.json` and `species/<taxon_id>.json`
 (`defile_explore.pipeline.build_taxon`), with French names from the eBird taxonomy (downloaded
 once, no key) and the written accounts from `content/accounts/`. The shared stage (~80 s of time-of-day profiles) and
-each taxon's trend fit are cached in `data/cache/`, so a rebuild after a change to one block
+each taxon's trend fit and benchmark are cached in `data/cache/`, so a rebuild after a change to one block
 refits nothing. Copy `data/explore/` to defileViz's `public/data/explore/` to publish it.
 
 Usage:
@@ -13,6 +13,7 @@ Usage:
     python scripts/build_explore.py                       # rebuild from data/count/dataset/
     python scripts/build_explore.py --taxa "Red Kite" avibase-ED5A7E8F   # only these species files
     python scripts/build_explore.py --skip-trend          # without the trend model
+    python scripts/build_explore.py --skip-benchmark      # trends without their benchmark
     python scripts/build_explore.py --no-cache            # recompute everything
 """
 
@@ -74,6 +75,9 @@ def main(argv=None) -> int:
         "--refresh-names", action="store_true", help="download the eBird taxonomy again"
     )
     ap.add_argument("--skip-trend", action="store_true", help="no trend model (fast build)")
+    ap.add_argument(
+        "--skip-benchmark", action="store_true", help="no benchmark of the trends (faster)"
+    )
     ap.add_argument("--no-cache", action="store_true", help="ignore and rewrite no cache")
     ap.add_argument("--workers", type=int, default=os.cpu_count() or 1)
     args = ap.parse_args(argv)
@@ -93,7 +97,17 @@ def main(argv=None) -> int:
     overrides = X.load_overrides()
     accounts = A.load_accounts(taxon_ids=taxa["taxon_id"])
     ids = select(taxa, args.taxa)
-    jobs = list(L.taxon_jobs(shared, ids, overrides, accounts, args.data_dir, not args.no_cache))
+    jobs = list(
+        L.taxon_jobs(
+            shared,
+            ids,
+            overrides,
+            accounts,
+            args.data_dir,
+            not args.no_cache,
+            benchmark=not args.skip_benchmark,
+        )
+    )
     if args.skip_trend:
         for j in jobs:
             j["overrides"] = j["overrides"] | {

@@ -6,9 +6,9 @@ report paragraphs about that day the dataset attached to it, each opening with i
 brackets, `[Rapport annuel 2020; Contexte journalier 2020-10-14, Milan royal; ...]`).
 
 `day_remarks` splits both into notes, one row per paragraph: `taxon_id` (None for a survey's),
-`date`, `source` (`survey` or `count`), `ref` (the bracketed source's first part, e.g.
-`Rapport annuel 2020`, or None) and `text`. A count remark's field label (`details:`, `remark:`,
-...) is dropped, and so are empty paragraphs and the dataset's own placeholders (`PLACEHOLDERS`).
+`date`, `source` (`survey` or `count`), `ref` (the bracketed source's first part, e.g. `Rapport
+annuel 2020`, or None) and `text`. A count remark's field label (`details:`, `remark:`, ...) is
+dropped, and so are empty paragraphs and the dataset's own placeholders (`PLACEHOLDERS`).
 `notes_of` gives a day's notes, the day's survey notes first, each text once.
 """
 

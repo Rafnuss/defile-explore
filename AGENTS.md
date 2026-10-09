@@ -34,9 +34,13 @@ defileViz (`src/services/explore.js`, `src/components/explore/`) reads `taxa.jso
 taxon's model window (`trend.window`), no longer always the default one. Renaming or reshaping a
 field breaks the page: change both repos together. The blocks added by `pipeline.build_taxon`
 (`season`, `daytime`, `age`, `sex`, `records`, `key_numbers`, `settings`, `window`, `links`,
-`accounts`, `diagnostics`) are not read by defileViz yet; `scripts/explore_viewer.py` draws all of them and is
+`accounts`, `benchmark`, `reliability`, `diagnostics`) are not read by defileViz yet; `scripts/explore_viewer.py` draws all of them and is
 where a block is checked first. Each block names its `method` (`name@version`): bump the version
 when what the block means changes.
+
+`reliability` classes each trend claim (`totals`, `trend`, `season`) as `show`, `caveat` or `hide`
+with reason codes. The rule and its thresholds live in `reliability.py`; defileViz only filters on
+the classes and words the reasons. Change a threshold here, never add a filter of its own there.
 
 ## Written accounts
 

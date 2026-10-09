@@ -6,9 +6,11 @@ import pandas as pd
 import pytest
 
 from defile_explore import accounts as A
+from defile_explore import benchmark as B
 from defile_explore import daytime as Y
 from defile_explore import demography as G
 from defile_explore import pipeline as L
+from defile_explore import reliability as Q
 from defile_explore import remarks as M
 from defile_explore import season as S
 from defile_explore import settings as X
@@ -350,3 +352,63 @@ def test_a_day_lists_survey_notes_first_and_each_text_once():
         columns=M.COLUMNS,
     )
     assert [n["text"] for n in M.notes_of(remarks, d)] == ["Quelle journée !", "Un pic."]
+
+
+# --- benchmark and reliability -----------------------------------------------------------------
+
+
+def test_the_benchmark_score_is_the_median_log_error_and_interval_cover():
+    t = pd.DataFrame(
+        {
+            "method": "gam",
+            "truth": [100.0, 100.0, 100.0],
+            "estimate": [100.0, 120.0, 0.0],
+            "q2.5": [50.0, 110.0, 0.0],
+            "q10": [80.0, 115.0, 0.0],
+            "q90": [120.0, 125.0, 1.0],
+            "q97.5": [150.0, 130.0, 2.0],
+        }
+    )
+    s = B.score(t).loc["gam"]
+    assert s["abs_log_err"] == pytest.approx(np.log(121 / 101))  # an estimate of 0 stays finite
+    assert s["cover80"] == pytest.approx(1 / 3)
+    assert s["n"] == 3
+
+
+def reliability_inputs(**kw) -> dict:
+    x = {
+        "gap_error": 0.05,
+        "gap_cover80": 0.9,
+        "gap_trials": 30,
+        "observed_share": 0.85,
+        "interval_ratio": 1.3,
+        "smooth_band": 1.5,
+        "passage_band": 3.0,
+        "beyond_counting": [],
+        "profile": "own",
+    }
+    return x | kw
+
+
+def test_a_well_tested_taxon_shows_every_claim():
+    c = Q.classes(reliability_inputs())
+    assert [c[k]["class"] for k in ("totals", "trend", "season")] == ["show"] * 3
+
+
+def test_a_bad_fill_hides_the_totals_and_the_trend_with_them():
+    c = Q.classes(reliability_inputs(gap_error=0.6))
+    assert c["totals"] == {"class": "hide", "reasons": [{"code": "fill_error", "level": "hide"}]}
+    assert c["trend"]["class"] == "hide"
+    assert c["season"]["class"] == "show"
+
+
+def test_an_untested_taxon_with_a_borrowed_profile_is_a_caveat():
+    c = Q.classes(reliability_inputs(gap_error=None, gap_trials=0, profile="raptors"))
+    assert [r["code"] for r in c["totals"]["reasons"]] == ["untested", "borrowed_profile"]
+    assert c["totals"]["class"] == "caveat"
+
+
+def test_an_undetermined_passage_date_hides_the_season():
+    c = Q.classes(reliability_inputs(passage_band=80.0, beyond_counting=["late"]))
+    assert c["season"]["class"] == "hide"
+    assert {r["code"] for r in c["season"]["reasons"]} == {"passage_band", "beyond_counting"}

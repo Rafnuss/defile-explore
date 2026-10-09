@@ -28,7 +28,7 @@ Files, written by `scripts/build_explore.py` (one `build_*` function each):
   season in the first and last year, and each year's season with and without its weather episodes.
   `defile_explore.pipeline.build_taxon` adds the blocks derived from the same data and fit
   (`settings`, `window`, `links`, `key_numbers`, `season`, `daytime`, `age`, `sex`, `records`,
-  `accounts`, `diagnostics`); each of those modules documents its block.
+  `accounts`, `benchmark`, `reliability`, `diagnostics`); each of those modules documents its block.
 
 Tables are columnar (`{"date": [...], "count": [...]}`) to keep the files small.
 """

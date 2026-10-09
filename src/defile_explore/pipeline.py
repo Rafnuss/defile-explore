@@ -8,7 +8,8 @@ file:
 the raw tables as before (`days`,
 `hourly`, `annual`, `profile`), `trend` (the GAM, cached per taxon), and the blocks
 derived from the same data and fit: `season`, `daytime`, `age`, `sex`, `records`,
-`key_numbers`, the written `accounts`, with the taxon's `settings`, `window`, `links` and
+`key_numbers`, the written `accounts`, the trend's `benchmark` (cached like the trend) and
+`reliability`, with the taxon's `settings`, `window`, `links` and
 `diagnostics`. The trend is fitted
 on the taxon's model window, the season panels show its view window (`defile_explore.window`).
 
@@ -26,11 +27,13 @@ import numpy as np
 import pandas as pd
 
 from defile_explore import accounts as A
+from defile_explore import benchmark as B
 from defile_explore import daytime as Y
 from defile_explore import demography as G
 from defile_explore import export as E
 from defile_explore import profile as P
 from defile_explore import release as R
+from defile_explore import reliability as Q
 from defile_explore import remarks as M
 from defile_explore import season as S
 from defile_explore import settings as X
@@ -120,10 +123,19 @@ def load_shared(data_dir: str, ebird: pd.DataFrame, use_cache: bool = True) -> S
 
 
 def taxon_jobs(
-    shared: Shared, taxon_ids, overrides: dict, accounts: dict, data_dir: str, use_cache=True
+    shared: Shared,
+    taxon_ids,
+    overrides: dict,
+    accounts: dict,
+    data_dir: str,
+    use_cache=True,
+    benchmark=True,
 ):
     """One job per taxon: everything `build_taxon` needs, cut from the shared stage and the
-    `accounts` (`accounts.load_accounts`)."""
+    `accounts` (`accounts.load_accounts`).
+
+    `benchmark`: run the benchmark on the taxa with a trend.
+    """
     tax = shared.taxonomy.set_index("taxon_id")
     for taxon_id in taxon_ids:
         t = shared.taxa.set_index("taxon_id").loc[taxon_id]
@@ -150,7 +162,8 @@ def taxon_jobs(
             ],
             "overrides": overrides,
             "last_year": shared.last_year,
-            "cache": os.path.join(data_dir, CACHE_DIR, "trend") if use_cache else None,
+            "cache": os.path.join(data_dir, CACHE_DIR) if use_cache else None,
+            "benchmark": benchmark,
             "shared_key": shared.key,
         }
 
@@ -158,55 +171,79 @@ def taxon_jobs(
 # --- trend ------------------------------------------------------------------------------------
 
 
-def trend_key(job: dict, start: int, window: tuple[int, int]) -> str:
+def trend_key(job: dict, start: int, window: tuple[int, int], *modules) -> str:
+    """The taxon's data, profile, years and window, and the code of `trend` and `modules`."""
     h = hashlib.sha1()
     for part in (job["days"], job["hourly"]):
         h.update(pd.util.hash_pandas_object(part, index=False).to_numpy().tobytes())
     h.update(np.ascontiguousarray(job["profile"]).tobytes())
     h.update(f"{start}:{window}:{job['last_year']}:{job['shared_key']}".encode())
-    h.update(_source_hash(T).encode())
+    h.update(_source_hash(T, *modules).encode())
     return h.hexdigest()[:16]
+
+
+def cached(job: dict, name: str, key: str, compute):
+    """`compute()`, from `<cache>/<name>/<taxon_id>-<key>.pkl` when there (no cache: computed)."""
+    if not job["cache"]:
+        return compute()
+    path = os.path.join(job["cache"], name, f"{job['taxon']['taxon_id']}-{key}.pkl")
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            return pickle.load(f)
+    out = compute()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as f:
+        pickle.dump(out, f)
+    return out
 
 
 def trend_block(job: dict, start: int, window: tuple[int, int]) -> dict:
     """`taxon_trend`, from the cache when the taxon's data, profile, years, window and the trend
     code are unchanged."""
-    path = None
-    if job["cache"]:
-        path = os.path.join(
-            job["cache"], f"{job['taxon']['taxon_id']}-{trend_key(job, start, window)}.pkl"
+
+    def compute():
+        t = T.taxon_trend(
+            days=job["days"],
+            hourly=job["hourly"],
+            effort=job["effort"],
+            profile=job["profile"],
+            first_year=start,
+            last_year=job["last_year"],
+            window=window,
         )
-        if os.path.exists(path):
-            with open(path, "rb") as f:
-                return pickle.load(f)
-    t = T.taxon_trend(
-        days=job["days"],
-        hourly=job["hourly"],
-        effort=job["effort"],
-        profile=job["profile"],
-        first_year=start,
-        last_year=job["last_year"],
-        window=window,
-    )
-    out = {
-        "method": "trend-gam@1",
-        "model": t["model"],
-        "first_year": t["first_year"],
-        "last_year": t["last_year"],
-        "window": W.as_dates(window),
-        "theta": t["theta"],
-        "kappa": t["kappa"],
-        "annual": E.records(t["annual"]),
-        "passage": E.records(t["passage"]),
-        "passage_q": E.records(t["passage_q"]),
-        "season": t["season"],
-        "episodes": t["episodes"],
-    }
-    if path:
-        os.makedirs(job["cache"], exist_ok=True)
-        with open(path, "wb") as f:
-            pickle.dump(out, f)
-    return out
+        return {
+            "method": "trend-gam@1",
+            "model": t["model"],
+            "first_year": t["first_year"],
+            "last_year": t["last_year"],
+            "window": W.as_dates(window),
+            "theta": t["theta"],
+            "kappa": t["kappa"],
+            "annual": E.records(t["annual"]),
+            "passage": E.records(t["passage"]),
+            "passage_q": E.records(t["passage_q"]),
+            "season": t["season"],
+            "episodes": t["episodes"],
+        }
+
+    return cached(job, "trend", trend_key(job, start, window), compute)
+
+
+def benchmark_block(job: dict, start: int, window: tuple[int, int]) -> dict:
+    """`benchmark.taxon_benchmark` on the taxon's trend as fitted, cached the same way."""
+
+    def compute():
+        return B.taxon_benchmark(
+            days=job["days"],
+            hourly=job["hourly"],
+            effort=job["effort"],
+            profile=job["profile"],
+            first_year=start,
+            last_year=job["last_year"],
+            window=window,
+        )
+
+    return cached(job, "benchmark", trend_key(job, start, window, B), compute)
 
 
 # --- derived blocks ---------------------------------------------------------------------------
@@ -357,6 +394,7 @@ def build_taxon(job: dict) -> tuple[str, dict]:
     model_w, view_w = settings["model_window"].value, settings["view_window"].value
     window = window_block(rule, settings)
     trend = trend_block(job, start, model_w) if settings["trend"].value else None
+    bench = benchmark_block(job, start, model_w) if trend and job["benchmark"] else None
     frame = season_frame[season_frame["doy"].between(*view_w)]
     season = S.season_block(frame, last, model_w)
     daytime = Y.daytime_block(
@@ -377,6 +415,8 @@ def build_taxon(job: dict) -> tuple[str, dict]:
         "profile": {"source": job["profile_source"], **P.profile_table(profile)},
         "accounts": A.accounts_block(job["accounts"], last),
         "trend": trend,
+        "benchmark": bench,
+        "reliability": Q.reliability_block(trend, bench, window, job["profile_source"]),
         "season": season,
         "daytime": daytime,
         "age": age,
