@@ -6,6 +6,8 @@ still open.
 
 ## Repository
 
+**Narrative accounts belong in Explore (2026-10-09).** The bilingual species and species-year accounts moved from defile-dataset to `content/accounts/`, with their authored TSV inputs, CSV exports, reading copies, editorial coverage and generation instructions. Their scripts live in `scripts/accounts/` and read the unchanged release tables in `data/count/dataset/`, including the original annual and paper text extracts. Published annual totals and the original-name crosswalk are retained as supporting snapshots under `content/accounts/reference/`. Authored content is versioned outside ignored `data/`; exporting it does not change the statistical JSON contract or generate new prose.
+
 **Explore has its own repo, split from defile-migration-forecast (2026-10-09).** It started there
 as `src/explore/` (that repo's issue #55) and grew into its own project: per-species statistics,
 a QA viewer and method pages, with none of the forecast's dependencies (torch, Lightning, Hydra).
@@ -261,11 +263,43 @@ birds, is not shown. Early, peak and late are between the 10/35/65/90% passage d
 smooth season (or the pooled counted seasons without a trend).
 
 **Age and sex: shares among the birds given one, only in usable years.** A year is usable with at
-least 20 birds aged (or sexed) and 5% of those counted, and a taxon needs 3 such years. The age
-codes `1`, `J`, `I`, `2` are one class, non-adult: the codes used switch between years (Red Kite:
-mostly `1` in 2019, `I` in 2022). Every share has a 95% Wilson interval; a pooled share over the
-usable years is given too. Whether aged birds represent those passing is not checked: Red Kite
-comes out 97% non-adult, dominated by 2024-2025, when many juveniles were aged.
+least 20 birds aged (or sexed), 5% of those counted, and both classes recorded (`demography@2`),
+and a taxon needs 3 such years. The age codes `1`, `J`, `I`, `2` are one class, non-adult: the
+codes used switch between years (Red Kite: mostly `1` in 2019, `I` in 2022). Every share has a 95%
+Wilson interval; a pooled share over the usable years is given too.
+
+**Both classes recorded: the smaller at least 10% of the birds aged or sexed.** Counters often tag
+one class and leave the other blank. Red Kite came out 97% non-adult: in 2024, 4 030 non-adults
+and 8 adults among 17 372 birds counted, in 2025 3 452 and none. Black Kite (2 334 non-adult, 0
+adult in 2025), Grey Heron and gull sp. do the same; Honey Buzzard in 2024 the reverse (644 adults,
+52 non-adults). The share among aged birds then measures what was tagged, not what passed. The
+rule drops those years (Red Kite, Black Kite, Grey Heron and gull sp. lose the panel; 7 taxa keep
+it). It also drops a year where one class is genuinely under 10%: such a taxon gets its years back
+as an override, with the reason. Sex uses males against females and female-coloured birds.
+
+**Records are all-time**, historical counts included (all pigeons: 116 340 on 20 Oct 1975),
+decided by the user: a record is a count, not an estimate, so the start year does not apply.
+
+**Windows per taxon: fitted on a model window, shown over a wider view window, by rule**
+(`window@1`). The default window (18 Jul - 18 Nov) is where 80-100% of years are counted; from
+20 Nov to 1 Dec only about a third are. Late taxa still pass then: Red Kite averages around 120
+birds a day on 30 Nov in the years counted, and 2025 had 2 600 counted on 19-23 Nov. So each taxon
+gets:
+
+- a model window: the default, extended to 0.5% / 99.5% of its mean passage plus 5 days, but only
+  over days counted in at least a third of its years, since the trend fills the rest. Never cut
+  below the default, so a taxon passing inside it keeps the benchmarked fit. 41 of the 74 trend taxa
+  are extended, by at most 6 days (to 20-24 Nov; Black Kite and Sand Martin to 14-15 Jul). Red
+  Kite's 2025 total goes from 20 700 to 24 700.
+- a view window for the season panels, extended the same way to 0.1% / 99.9% over days counted in
+  at least 10% of years (to 2 Dec for most late taxa). Totals, shares and the yearly passage dates
+  stay those of the model window: beyond it, the gaps to fill are too long, and filling them held
+  the last counted day flat to 2 Dec.
+- `passage_beyond_counting` (51 full-tier taxa): the passage still reaches the model window's
+  outer limit, so the totals are totals up to that date. A property of the count, for the page to
+  state, not a fault to fix.
+
+Both windows are settings, overridable as `[MM-DD, MM-DD]` with a reason.
 
 **Key numbers** are read from the blocks, not computed apart: the main passage is the smooth
 season's 10-90% in the last year (else the pooled counted seasons of the last 10), best hours the

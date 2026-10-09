@@ -30,9 +30,10 @@ for the user, logged in the table in `DECISIONS.md` -> Repository.
 
 defileViz (`src/services/explore.js`, `src/components/explore/`) reads `taxa.json` and
 `species/<taxon_id>.json`, including `trend.annual`, `trend.passage`, `trend.season`,
-`trend.episodes`, `trend.theta`, `trend.kappa`, `profile` and `days`. Renaming or reshaping a
+`trend.episodes`, `trend.theta`, `trend.kappa`, `profile` and `days`. The trend is fitted on the
+taxon's model window (`trend.window`), no longer always the default one. Renaming or reshaping a
 field breaks the page: change both repos together. The blocks added by `pipeline.build_taxon`
-(`season`, `daytime`, `age`, `sex`, `records`, `key_numbers`, `settings`, `links`,
+(`season`, `daytime`, `age`, `sex`, `records`, `key_numbers`, `settings`, `window`, `links`,
 `diagnostics`) are not read by defileViz yet; `scripts/explore_viewer.py` draws all of them and is
 where a block is checked first. Each block names its `method` (`name@version`): bump the version
 when what the block means changes.

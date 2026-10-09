@@ -10,6 +10,7 @@ from defile_explore import demography as G
 from defile_explore import pipeline as L
 from defile_explore import season as S
 from defile_explore import settings as X
+from defile_explore import window as W
 from defile_explore.profile import PROFILE_DOY
 
 
@@ -57,6 +58,14 @@ def test_season_shares_sum_to_one_where_every_day_is_counted():
     assert b["passage"]["counted"].tolist() == [1, 1]
 
 
+def test_days_beyond_the_model_window_are_shown_but_not_in_the_total():
+    f = frame({2020: [10, 10, np.nan, np.nan, 50]})  # doy 200..204; 202-203 not counted
+    b = S.season_block(f, 2020, model_window=(200, 201))
+    assert b["doy"].tolist() == [200, 201, 202, 203, 204]
+    assert b["share"][0].tolist()[:2] == [0.5, 0.5] and b["share"][0][4] == 2.5
+    assert b["passage"]["counted"].tolist() == [1]
+
+
 def test_chances_count_days_reaching_each_threshold():
     birds = [0, 5, 50, 500] * 5  # 20 days: a quarter at each level
     ch = S.chances(frame({2020: birds}), 2020)
@@ -64,6 +73,54 @@ def test_chances_count_days_reaching_each_threshold():
     at1 = (np.asarray(ch["at_least_1"]) * days).sum() / days.sum()
     assert at1 == pytest.approx(0.75)
     assert "at_least_1000" not in ch
+
+
+# --- window ------------------------------------------------------------------------------------
+
+
+def season_frame(rate, counted_share, years: int = 10) -> pd.DataFrame:
+    """Season days 182..336 over `years` years: `rate(doy)` birds on counted days, each day counted
+    in the first `counted_share(doy)` share of the years."""
+    rows = []
+    for i in range(years):
+        for doy in range(182, 337):
+            counted = i < round(counted_share(doy) * years)
+            rows.append(
+                {"year": 2000 + i, "doy": doy, "c": float(counted), "y": rate(doy) * counted}
+            )
+    return pd.DataFrame(rows)
+
+
+def test_a_passage_inside_the_default_window_keeps_it():
+    lo, hi = W.default_window()
+    f = season_frame(lambda d: 100.0 if 240 <= d <= 280 else 0.0, lambda d: 1.0)
+    w = W.windows(f)
+    assert w["model"] == (lo, hi) and w["view"] == (lo, hi) and w["beyond_counting"] == []
+
+
+def test_a_late_passage_extends_to_where_enough_years_were_counted():
+    lo, hi = W.default_window()  # 18 Nov = 322
+    share = lambda d: 1.0 if d <= hi else (0.5 if d <= 328 else 0.2)  # noqa: E731
+    w = W.windows(season_frame(lambda d: 100.0 if d >= 280 else 0.0, share))
+    assert hi < w["model"][1] <= 328 + W.ENVELOPE_SMOOTH // 2  # modelled while 1/3 counted
+    assert w["view"][1] == 336  # shown while 10% counted
+    assert w["model"][0] == lo and w["beyond_counting"] == ["late"]
+
+
+def test_the_default_window_is_never_cut():
+    lo, hi = W.default_window()
+    share = lambda d: 0.0 if d < lo + 10 else 1.0  # noqa: E731  (start of the window not counted)
+    w = W.windows(season_frame(lambda d: 10.0, share))
+    assert w["model"][0] <= lo and w["model"][1] >= hi
+
+
+def test_a_window_override_is_read_as_dates(tmp_path):
+    text = "t1: {model_window: ['07-18', '11-25'], reason: test}"
+    o = X.load_overrides(write_overrides(tmp_path, text))
+    rule = {"model": (199, 322), "view": (199, 330)}
+    s = X.resolve_windows("t1", rule, o)
+    assert W.as_dates(s["model_window"].value) == ["07-18", "11-25"]
+    assert s["view_window"].value == (199, 330) and s["view_window"].source == "rule"
 
 
 # --- daytime -----------------------------------------------------------------------------------
@@ -109,15 +166,22 @@ def test_non_adult_codes_are_one_class():
 
 
 def test_years_need_enough_birds_aged_and_enough_years():
-    rows = pd.concat([demo_rows(2020, {"A": 50}), demo_rows(2021, {"A": 5})])
+    rows = pd.concat([demo_rows(2020, {"A": 30, "1": 20}), demo_rows(2021, {"A": 5})])
     counted = pd.Series([100.0, 100.0], index=[2020, 2021])
     assert G.usable_years(rows, "age", counted) == []  # one usable year, MIN_YEARS needed
-    rows = pd.concat([demo_rows(y, {"A": 50}) for y in (2020, 2021, 2022)])
+    rows = pd.concat([demo_rows(y, {"A": 30, "1": 20}) for y in (2020, 2021, 2022)])
     assert G.usable_years(rows, "age", pd.Series(100.0, index=[2020, 2021, 2022])) == [
         2020,
         2021,
         2022,
     ]
+
+
+def test_a_year_with_only_one_class_recorded_is_not_usable():
+    # juveniles tagged, adults left blank: the share among aged birds would be ~100%
+    years = (2020, 2021, 2022)
+    rows = pd.concat([demo_rows(y, {"J": 400, "A": 2}) for y in years])
+    assert G.usable_years(rows, "age", pd.Series(1000.0, index=list(years))) == []
 
 
 # --- settings ----------------------------------------------------------------------------------

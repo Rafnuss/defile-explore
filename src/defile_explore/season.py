@@ -7,7 +7,9 @@ share of a day divides that rate by the year's total, in which blank days are fi
 interpolation between counted days (so the total, not the shares shown, assumes the passage between
 two counted days ran between their rates). The year's passage dates (10/50/90%) come from the same
 filled series; `counted` is the share of the window's days actually counted, so a year with long
-gaps can be shown as less certain.
+gaps can be shown as less certain. Days are shown over the taxon's view window, but totals, shares
+and passage dates are of its model window (`defile_explore.window`): beyond it, too few years are
+counted for the filled gaps to be short.
 """
 
 import numpy as np
@@ -15,7 +17,7 @@ import pandas as pd
 
 from defile_explore.profile import COVERAGE_MIN
 
-METHOD = "season@1"
+METHOD = "season@2"
 PASSAGE_QUANTILES = (0.1, 0.5, 0.9)  # as the smooth season's (`trend.PASSAGE_QUANTILES`)
 CHANCE_YEARS = 10  # chances are for the last this many complete seasons
 CHANCE_THRESHOLDS = (1, 10, 100, 1000)  # at least this many birds in the day
@@ -73,16 +75,27 @@ def chances(frame: pd.DataFrame, last_year: int) -> dict:
     return out
 
 
-def season_block(frame: pd.DataFrame, last_year: int) -> dict:
+def season_block(frame: pd.DataFrame, last_year: int, model_window=None) -> dict:
     """The `season` block of a species file: `years` x `doy` shares of the year's birds (null =
-    not counted), each year's passage dates, and the chances."""
+    not counted), each year's passage dates, and the chances.
+
+    `frame` spans the view window; the year's total and its passage dates are of the model window
+    (`model_window`, season days; all of `frame` if None), where enough years are counted for the
+    filled gaps to be short, so a day shown beyond it has its share of that total.
+    """
     rate, filled = daily_rates(frame)
+    if model_window is not None:
+        inside = (rate.columns >= model_window[0]) & (rate.columns <= model_window[1])
+        _, filled = daily_rates(frame[frame["doy"].between(*model_window)])
+        passage = year_passage(rate.loc[:, inside], filled)
+    else:
+        passage = year_passage(rate, filled)
     share = rate.div(filled.sum(axis=1).where(lambda t: t > 0), axis=0)
     return {
         "method": METHOD,
         "years": rate.index.to_numpy(),
         "doy": rate.columns.to_numpy(),
         "share": share.to_numpy(),
-        "passage": year_passage(rate, filled),
+        "passage": passage,
         "chances": chances(frame, last_year),
     }

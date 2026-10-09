@@ -9,16 +9,14 @@ Go through `logs/viewer/index.html` (`scripts/explore_viewer.py`) in batches: ra
 storks, cranes and other large birds; passerines. A fix is a better rule (preferred) or an
 override with its reason. What the first full build already shows:
 
-- `passage_at_window_edge` (15 taxa): the smooth 10% or 90% passage date within 5 days of the
-  window's ends (7 Jul, 18 Nov). Late species (Red Kite, Common Buzzard, Hen Harrier) are cut off.
-  A window per taxon changes the benchmarked fit, so it needs a re-benchmark and a decision.
-- `wide_intervals` (11 taxa): median q90/q10 of the gap-filled totals above 2.
+- Windows (`DECISIONS.md` -> Pipeline): re-run `scripts/benchmark_trend.py` on the extended model
+  windows (it uses the default one), and decide how the page says "still passing when counting
+  thins out" for the 51 `passage_beyond_counting` taxa.
+- `wide_intervals` (12 taxa): median q90/q10 of the gap-filled totals above 2.
 - `borrowed_profile` (205 taxa, most of them rare): the time of day of a group, not the taxon's.
-- Age: whether aged birds represent those passing. Red Kite is 97% non-adult, carried by
-  2024-2025 when many juveniles were aged; the usable-year rule (20 birds, 5% of those counted, 3
-  years) may need to weigh years equally or ask for a steadier aged share.
-- Records and the record day include years before the start year (all pigeons: 116 340 on
-  20 Oct 1975). Keep the all-time record, or count from the start year?
+- Age: the both-classes rule drops Red Kite, Black Kite, Grey Heron and gull sp. Their juveniles
+  are still informative as a minimum share of the birds counted (Red Kite 2024: at least 23%),
+  if a panel for that is wanted.
 - Time of day uses every day timed to the hour, so for pigeons it pools the hour-by-hour
   notebooks of the late 1960s with recent days. Check that the two agree before pooling them.
 - `links`: Vogelwarte and Migration Atlas pages go in `overrides.yaml` by hand.

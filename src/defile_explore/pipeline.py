@@ -8,7 +8,8 @@ file:
 the raw tables as before (`days`,
 `hourly`, `annual`, `profile`, `reports`), `trend` (the GAM, cached per taxon), and the blocks
 derived from the same data and fit: `season`, `daytime`, `age`, `sex`, `records`,
-`key_numbers`, with the taxon's `settings`, `links` and `diagnostics`.
+`key_numbers`, with the taxon's `settings`, `window`, `links` and `diagnostics`. The trend is fitted
+on the taxon's model window, the season panels show its view window (`defile_explore.window`).
 
 Each block names its `method` (`<name>@<version>`), matched by a section of defileViz's method
 page; bump the version when what a block means changes.
@@ -32,12 +33,12 @@ from defile_explore import season as S
 from defile_explore import settings as X
 from defile_explore import timeofday
 from defile_explore import trend as T
+from defile_explore import window as W
 
 CACHE_DIR = os.path.join("cache")  # under the data dir
 RECORD_DAYS = 15  # top days listed
 KEY_YEARS = 10  # "typical season": the last this many complete seasons
 BEST_HOURS_SHARE = 0.6  # best hours: the fewest hours holding this share of a peak day
-EDGE_DAYS = 5  # passage within this many days of the window's edge is flagged
 DEMOGRAPHY_COLUMNS = ["taxon_id", "date", "count", "age", "sex"]
 
 
@@ -149,23 +150,23 @@ def taxon_jobs(shared: Shared, taxon_ids, overrides: dict, data_dir: str, use_ca
 # --- trend ------------------------------------------------------------------------------------
 
 
-def trend_key(job: dict, start: int) -> str:
+def trend_key(job: dict, start: int, window: tuple[int, int]) -> str:
     h = hashlib.sha1()
     for part in (job["days"], job["hourly"]):
         h.update(pd.util.hash_pandas_object(part, index=False).to_numpy().tobytes())
     h.update(np.ascontiguousarray(job["profile"]).tobytes())
-    h.update(f"{start}:{job['last_year']}:{job['shared_key']}".encode())
+    h.update(f"{start}:{window}:{job['last_year']}:{job['shared_key']}".encode())
     h.update(_source_hash(T).encode())
     return h.hexdigest()[:16]
 
 
-def trend_block(job: dict, start: int) -> dict:
-    """`taxon_trend`, from the cache when the taxon's data, profile, years and the trend code are
-    unchanged."""
+def trend_block(job: dict, start: int, window: tuple[int, int]) -> dict:
+    """`taxon_trend`, from the cache when the taxon's data, profile, years, window and the trend
+    code are unchanged."""
     path = None
     if job["cache"]:
         path = os.path.join(
-            job["cache"], f"{job['taxon']['taxon_id']}-{trend_key(job, start)}.pkl"
+            job["cache"], f"{job['taxon']['taxon_id']}-{trend_key(job, start, window)}.pkl"
         )
         if os.path.exists(path):
             with open(path, "rb") as f:
@@ -177,12 +178,14 @@ def trend_block(job: dict, start: int) -> dict:
         profile=job["profile"],
         first_year=start,
         last_year=job["last_year"],
+        window=window,
     )
     out = {
         "method": "trend-gam@1",
         "model": t["model"],
         "first_year": t["first_year"],
         "last_year": t["last_year"],
+        "window": W.as_dates(window),
         "theta": t["theta"],
         "kappa": t["kappa"],
         "annual": E.records(t["annual"]),
@@ -277,7 +280,21 @@ def daytime_parts(trend: dict | None, season: dict, last_year: int) -> list[floa
     return None if np.isnan(q).any() else q
 
 
-def diagnostics(job, frame, trend, season, daytime, age) -> dict:
+def window_block(rule: dict, settings: dict) -> dict:
+    """The taxon's windows as dates, the envelopes they come from, and where the passage reaches
+    the edge of counting."""
+    return {
+        "method": rule["method"],
+        "model": W.as_dates(settings["model_window"].value),
+        "view": W.as_dates(settings["view_window"].value),
+        "default": W.as_dates(W.default_window()),
+        "model_envelope": W.as_dates(rule["model_envelope"]),
+        "view_envelope": W.as_dates(rule["view_envelope"]),
+        "beyond_counting": rule["beyond_counting"],
+    }
+
+
+def diagnostics(job, frame, trend, daytime, age, window) -> dict:
     """Numbers and flags for the QA review: what may make this taxon's page misleading."""
     last = job["last_year"]
     recent = frame[(frame["year"] > last - KEY_YEARS) & (frame["c"] > 0)]
@@ -290,14 +307,12 @@ def diagnostics(job, frame, trend, season, daytime, age) -> dict:
     flags = []
     if job["profile_source"] != "own":
         flags.append("borrowed_profile")
-    lo, hi = int(frame["doy"].min()), int(frame["doy"].max())
+    if window["beyond_counting"] and job["taxon"]["tier"] == "full":
+        flags.append("passage_beyond_counting")
     if trend:
         a = pd.DataFrame(trend["annual"])
         d["interval_ratio"] = float((a["q90"] / a["q10"].clip(lower=1)).median())
         d["theta"], d["kappa"] = trend["theta"], trend["kappa"]
-        q = pd.DataFrame(trend["passage_q"])
-        if (q["q90"] > hi - EDGE_DAYS).any() or (q["q10"] < lo + EDGE_DAYS).any():
-            flags.append("passage_at_window_edge")
         if d["interval_ratio"] > 2:
             flags.append("wide_intervals")
     if daytime is None:
@@ -324,9 +339,14 @@ def build_taxon(job: dict) -> tuple[str, dict]:
     annual = E.annual(d).merge(
         P.annual_index(d, effort, c, start)[["year", "c_mean", "index"]], on="year", how="left"
     )
-    trend = trend_block(job, start) if settings["trend"].value else None
-    frame = T.model_frame(days, effort, c, start, last)
-    season = S.season_block(frame, last)
+    season_frame = T.model_frame(days, effort, c, start, last, P.PROFILE_DOY)
+    rule = W.windows(season_frame)
+    settings |= X.resolve_windows(taxon_id, rule, job["overrides"])
+    model_w, view_w = settings["model_window"].value, settings["view_window"].value
+    window = window_block(rule, settings)
+    trend = trend_block(job, start, model_w) if settings["trend"].value else None
+    frame = season_frame[season_frame["doy"].between(*view_w)]
+    season = S.season_block(frame, last, model_w)
     daytime = Y.daytime_block(
         days, job["hourly"], effort, profile, daytime_parts(trend, season, last)
     )
@@ -336,6 +356,7 @@ def build_taxon(job: dict) -> tuple[str, dict]:
     return taxon_id, {
         "taxon_id": taxon_id,
         "settings": {k: v.as_dict() for k, v in settings.items()},
+        "window": window,
         "links": links,
         "key_numbers": key_numbers(job, frame, trend, season, records),
         "days": E.columns(d),
@@ -349,5 +370,5 @@ def build_taxon(job: dict) -> tuple[str, dict]:
         "age": age,
         "sex": sex,
         "records": records,
-        "diagnostics": diagnostics(job, frame, trend, season, daytime, age),
+        "diagnostics": diagnostics(job, frame, trend, daytime, age, window),
     }

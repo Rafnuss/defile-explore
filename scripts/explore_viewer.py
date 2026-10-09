@@ -62,6 +62,12 @@ def doy_label(doy) -> str:
     return (dt.date(2025, 1, 1) + dt.timedelta(days=int(round(doy)) - 1)).strftime("%d %b")
 
 
+def doy_of(mmdd: str) -> int:
+    import datetime as dt
+
+    return dt.date(2025, *map(int, mmdd.split("-"))).timetuple().tm_yday
+
+
 def doy_axis(fig, row=None, col=None, axis="x"):
     upd = dict(tickvals=DOY_TICKS, ticktext=[doy_label(t) for t in DOY_TICKS])
     (fig.update_xaxes if axis == "x" else fig.update_yaxes)(**upd, row=row, col=col)
@@ -83,7 +89,7 @@ def panel(fig, title, note=""):
 
 
 def method(block) -> str:
-    return f" <small class='note'>[{block['method']}]</small>" if block else ""
+    return f" <span style='font-size:11px;color:#888'>[{block['method']}]</span>" if block else ""
 
 
 # --- panels -----------------------------------------------------------------------------------
@@ -197,6 +203,12 @@ def season_panel(sp: dict) -> str:
                                  marker=dict(color="white" if col == "q50" else "#333", size=7,
                                              line=dict(color="black", width=1),
                                              opacity=(0.3 + 0.7 * p["counted"]).tolist())))  # fmt: skip
+    w = sp["window"]
+    for i in (0, 1):  # window edges, where the model's differs from the default
+        if w["model"][i] != w["default"][i]:
+            for key, color in (("default", "#999"), ("model", "#1f77b4")):
+                x = doy_of(w[key][i]) + (0.5 if i else -0.5)
+                fig.add_vline(x=x, line=dict(color=color, dash="dash"))
     doy_axis(fig)
     fig.update_layout(height=FIG_H + 160, legend=dict(orientation="h", y=-0.1))
     title = "Phenology, every year: share of the season's birds per day"
@@ -206,7 +218,10 @@ def season_panel(sp: dict) -> str:
         )
     return panel(fig, title + method(s),
                  "Empirical; blank = not counted. Dots: that year's 10/50/90% passage dates "
-                 "(paler = more of the season uncounted). Lines: the smooth.")  # fmt: skip
+                 "(paler = more of the season uncounted). Lines: the smooth. Dashed: the model "
+                 f"window {' - '.join(w['model'])} (blue) where it differs from the default "
+                 f"{' - '.join(w['default'])} (grey); shown: {' - '.join(w['view'])}. "
+                 f"Passage beyond counting: {', '.join(w['beyond_counting']) or 'no'}.")  # fmt: skip
 
 
 def chances_panel(sp: dict) -> str:
@@ -321,7 +336,7 @@ def records_panel(sp: dict) -> str:
 
 def page(tx: dict, sp: dict, effort_annual: list) -> str:
     settings = "".join(
-        f"<tr><td>{k}</td><td>{html.escape(json.dumps(v['value']))}</td><td>{v['source']}</td>"
+        f"<tr><td>{k}</td><td>{html.escape(json.dumps(sp['window'][k.split('_')[0]] if k.endswith('_window') else v['value']))}</td><td>{v['source']}</td>"
         f"<td>{html.escape(v.get('reason') or '')}</td></tr>"
         for k, v in sp["settings"].items()
     )

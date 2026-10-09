@@ -128,10 +128,16 @@ def season_day(dates: pd.DatetimeIndex) -> np.ndarray:
 
 
 def model_frame(
-    days: pd.DataFrame, effort: pd.DataFrame, c: pd.Series, first_year: int, last_year: int
+    days: pd.DataFrame,
+    effort: pd.DataFrame,
+    c: pd.Series,
+    first_year: int,
+    last_year: int,
+    window: tuple[int, int] | None = None,
 ) -> pd.DataFrame:
     """One row per window day of `first_year`..`last_year`: `date`, `year`, `doy` (`season_day`),
-    `c`, `y` and `extra`.
+    `c`, `y` and `extra`. `window`: first and last season day (`defile_explore.window`); the
+    default window `WINDOW` if None.
 
     Counted days (`state == "counted"`) carry their coverage `c` and count `y` (0 without a record);
     every other day, and a counted day with only a presence record, has `c = 0` and `y = 0`: nothing
@@ -139,7 +145,11 @@ def model_frame(
     birds kept in `extra`.
     """
     dates = pd.date_range(f"{first_year}-01-01", f"{last_year}-12-31", freq="D")
-    dates = dates[in_window(pd.Series(dates)).to_numpy()]
+    if window is None:
+        dates = dates[in_window(pd.Series(dates)).to_numpy()]
+    else:
+        sd = season_day(dates)
+        dates = dates[(sd >= window[0]) & (sd <= window[1])]
     f = pd.DataFrame({"date": dates, "year": dates.year, "doy": season_day(dates)})
     counted = effort["state"] == "counted"
     f["c"] = f["date"].map(c[counted].set_axis(effort.loc[counted, "date"])).fillna(0.0)
@@ -816,9 +826,10 @@ def taxon_trend(
     last_year: int,
     variant: str = "gam",
     seed: int = 0,
+    window: tuple[int, int] | None = None,
 ) -> dict:
     """One taxon's trend for `species/<taxon_id>.json`, `first_year`..`last_year` (complete seasons
-    from its start year), in the default window.
+    from its start year), over `window` (season days; the default window if None).
 
     `annual`: per year, birds counted, the gap-filled total (median and 80%/95% intervals), the
     share counted, and the smooth expected total (trend without the year's level and weather
@@ -828,7 +839,7 @@ def taxon_trend(
     the first and the last year. `episodes`: every year's season with and without its weather
     episodes (`episode_curves`).
     """
-    frame = model_frame(days, effort, coverage(effort, profile), first_year, last_year)
+    frame = model_frame(days, effort, coverage(effort, profile), first_year, last_year, window)
     years = np.arange(first_year, last_year + 1)
     doy_range = (int(frame["doy"].min()), int(frame["doy"].max()))
     kappa = hour_dispersion(days, hourly, effort, profile)

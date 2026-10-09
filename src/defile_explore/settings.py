@@ -13,6 +13,8 @@ Settings:
 - `age_years`, `sex_years`: years shown for age and sex (`demography.usable_years`). An override is
   a list of years, or `{from: Y}` / `{from: Y, to: Z}`: every year of the range with any bird aged
   (or sexed).
+- `model_window`, `view_window`: the season days the trend is fitted on and the season panels
+  show (`window.windows`). An override is `[MM-DD, MM-DD]`, inclusive.
 - `links`: external pages. eBird, eBird Status and Trends, Birds of the World, EBBA2 and
   Trektellen by rule (from the taxonomy's codes); others (`vogelwarte`, `migration_atlas`) only
   from `overrides.yaml`, where they need no reason.
@@ -25,10 +27,12 @@ import pandas as pd
 import yaml
 
 from defile_explore import demography as G
+from defile_explore import window as W
 from defile_explore.trend import TREND_RANKS
 
 OVERRIDES_FILE = os.path.join(os.path.dirname(__file__), "overrides.yaml")
-SETTINGS = ("start_year", "trend", "age_years", "sex_years")
+SETTINGS = ("start_year", "trend", "age_years", "sex_years", "model_window", "view_window")
+WINDOW_SETTINGS = ("model_window", "view_window")  # set after the start year, from the data
 LINK_KEYS = ("vogelwarte", "migration_atlas")  # set by hand only
 TREKTELLEN_SITE = 2422  # Défilé de l'Écluse on trektellen.org
 LINK_TEMPLATES = {
@@ -64,6 +68,8 @@ def load_overrides(path: str = OVERRIDES_FILE) -> dict:
             raise ValueError(f"{OVERRIDES_FILE}: {taxon_id}: unknown setting(s) {sorted(unknown)}")
         if set(o) & set(SETTINGS) and not o.get("reason"):
             raise ValueError(f"{OVERRIDES_FILE}: {taxon_id}: an override needs a `reason`")
+        for name in set(o) & set(WINDOW_SETTINGS):
+            W.from_dates(o[name])  # a malformed date fails here, not mid-build
         bad = set(o.get("links", {})) - set(LINK_KEYS)
         if bad:
             raise ValueError(f"{OVERRIDES_FILE}: {taxon_id}: unknown link(s) {sorted(bad)}")
@@ -114,7 +120,7 @@ def resolve(
     }
     o = overrides.get(taxon["taxon_id"], {})
     for name in SETTINGS:
-        if name in o:
+        if name in o and name not in WINDOW_SETTINGS:
             value = o[name]
             if name in ("age_years", "sex_years"):
                 value = year_range(demography_rows, name.split("_")[0], value)
@@ -123,3 +129,18 @@ def resolve(
     for key, value in o.get("links", {}).items():
         links[key] = LINK_TEMPLATES[key].format(value=value)
     return s, links
+
+
+def resolve_windows(taxon_id: str, rule: dict, overrides: dict) -> dict:
+    """`model_window` and `view_window` (season days) from `rule` (`window.windows`), or from
+    `overrides`; a view window never narrower than the model window."""
+    o = overrides.get(taxon_id, {})
+    s = {}
+    for name in WINDOW_SETTINGS:
+        if name in o:
+            s[name] = Setting(W.from_dates(o[name]), "override", o["reason"])
+        else:
+            s[name] = Setting(rule[name.split("_")[0]])
+    m, v = s["model_window"].value, s["view_window"].value
+    s["view_window"].value = (min(m[0], v[0]), max(m[1], v[1]))
+    return s

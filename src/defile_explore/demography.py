@@ -2,9 +2,13 @@
 
 Only some birds are aged or sexed, and the share changes from year to year, so every value is a
 share among the birds given an age (or sex) in that year, with a 95% Wilson interval. That assumes
-the birds aged are representative of those passing, which is not checked: a year counts as usable
-only if enough birds were aged (`MIN_BIRDS`, and `MIN_SHARE` of those counted), and a taxon gets
-the panel only with `MIN_YEARS` usable years (`usable_years`; `settings` can override).
+the birds aged are representative of those passing. Counters often tag only one class and leave the
+other blank (Red Kite since 2022: thousands of juveniles a year, almost no adults), which makes the
+share among aged birds meaningless. So a year counts as usable only if enough birds were aged
+(`MIN_BIRDS`, and `MIN_SHARE` of those counted) and both classes were recorded (the smaller at
+least `MIN_CLASS_SHARE` of the aged birds), and a taxon gets the panel only with `MIN_YEARS` usable
+years (`usable_years`; `settings` can override). A taxon where one class is genuinely rare loses
+years to that rule: add them back as an override, with the reason.
 
 Age codes: `A` adult; `1` (first calendar year), `J` (juvenile), `I` (immature) and `2` (second
 calendar year) are one class, non-adult, because the codes used switch between years (Red Kite:
@@ -15,12 +19,14 @@ mostly `1` in 2019, mostly `I` in 2022), which says more about the recording tha
 import numpy as np
 import pandas as pd
 
-METHOD = "demography@1"
+METHOD = "demography@2"
 NON_ADULT = ("1", "J", "I", "2")
 ADULT = ("A",)
 SEXES = ("M", "F", "FC")
+CLASSES = {"age": (NON_ADULT, ADULT), "sex": (("M",), ("F", "FC"))}  # the two classes compared
 MIN_BIRDS = 20  # aged (or sexed) birds in a year for the year to count
 MIN_SHARE = 0.05  # ... and this share of the year's birds counted
+MIN_CLASS_SHARE = 0.1  # ... and the smaller class this share of them (both classes recorded)
 MIN_YEARS = 3  # usable years for a taxon to get the panel
 Z95 = 1.96
 
@@ -49,11 +55,14 @@ def per_year(rows: pd.DataFrame, field: str, counted: pd.Series) -> pd.DataFrame
 
 
 def usable_years(rows: pd.DataFrame, field: str, counted: pd.Series) -> list[int]:
-    """Years with at least `MIN_BIRDS` birds given a `field`, and `MIN_SHARE` of those counted;
-    empty if fewer than `MIN_YEARS` such years."""
+    """Years with at least `MIN_BIRDS` birds given a `field`, `MIN_SHARE` of those counted, and
+    each of the field's two `CLASSES` at least `MIN_CLASS_SHARE` of them; empty if fewer than
+    `MIN_YEARS` such years."""
     g = per_year(rows, field, counted)
-    n = g.drop(columns="counted").sum(axis=1)
+    a, b = (g[[c for c in cls if c in g]].sum(axis=1) for cls in CLASSES[field])
+    n = a + b
     ok = (n >= MIN_BIRDS) & (n >= MIN_SHARE * g["counted"])
+    ok &= np.minimum(a, b) >= MIN_CLASS_SHARE * n
     years = [int(y) for y in g.index[ok]]
     return years if len(years) >= MIN_YEARS else []
 
