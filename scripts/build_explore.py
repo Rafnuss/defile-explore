@@ -4,9 +4,10 @@
 Reads the release in `data/count/dataset/` (copied there with `--dataset <dir>`) and writes
 `data/explore/`: `manifest.json`, `taxa.json` (with the picker's fields, `defile_explore.catalogue`),
 `effort.json` and `species/<taxon_id>.json` (`defile_explore.pipeline.build_taxon`), with French names from the eBird taxonomy (downloaded
-once, no key) and the written accounts from `content/accounts/`. The shared stage (~80 s of time-of-day profiles) and
+once, no key) and the written accounts from `content/accounts/`. The shared stage (~2.5 min of time-of-day profiles) and
 each taxon's trend fit and benchmark are cached in `data/cache/`, so a rebuild after a change to one block
-refits nothing. Copy `data/explore/` to defileViz's `public/data/explore/` to publish it.
+refits nothing: ~5.5 min in full on 12 cores, ~15 s with nothing changed. Rebuild the release in
+defile-dataset first: `--dataset` copies what is there. Publish it with `scripts/publish_explore.py`.
 
 Usage:
     python scripts/build_explore.py --dataset ../defile-dataset/output   # copy a release, then build
@@ -35,12 +36,19 @@ from defile_explore import settings as X
 from defile_explore import trend as T
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# What the export is made from: a change here marks it built from uncommitted code (the viewer and
+# the analyses do not count).
+EXPORT_SOURCES = ("src", "content", "uv.lock", "pyproject.toml", "scripts/build_explore.py")
 
 
 def write(path: str, obj) -> int:
     with open(path, "w", encoding="utf-8") as f:
         f.write(E.dumps(obj))
     return os.path.getsize(path)
+
+
+def git(*args: str) -> str:
+    return subprocess.run(["git", *args], capture_output=True, text=True, cwd=ROOT).stdout.strip()
 
 
 def copy_release(release: str, data_dir: str) -> None:
@@ -114,9 +122,9 @@ def main(argv=None) -> int:
             j["overrides"] = j["overrides"] | {
                 j["taxon"]["taxon_id"]: {"trend": False, "reason": "--skip-trend"}
             }
-    git_sha = subprocess.run(
-        ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT
-    ).stdout.strip()
+    git_sha = git("rev-parse", "--short", "HEAD")
+    if git("status", "--porcelain", "--", *EXPORT_SOURCES):
+        git_sha += " (uncommitted changes)"  # as defile-dataset marks its metadata
 
     if not args.taxa and os.path.isdir(args.out):
         shutil.rmtree(args.out)

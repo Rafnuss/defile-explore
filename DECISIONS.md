@@ -25,6 +25,18 @@ other is a decision made by hand and logged here, never an import or a shared pa
 | ---------- | ------------------- | ----------------------------------- | --------- |
 | 2026-10-09 | forecast -> explore | `release.py`, `timeofday.py` copied | the split |
 
+**Built locally, published as release assets (2026-10-09).** A full build takes 30-40 min on a
+GitHub runner (~5.5 on 12 cores), and the cache cannot help in CI: it is keyed on the source code,
+so most pushes are cold builds. So CI only runs the tests, and `scripts/publish_explore.py` uploads
+the local build (`explore.zip`, `viewer.zip`) to the rolling `dev` pre-release; Pages and
+defileViz's deploy download from there. Rejected: the 32 MB export committed in defileViz (275
+files rewritten in its history at each build, no check that the copy matches), a `gh-pages`
+branch (the same growth), Actions artifacts (expire after 90 days, need a token to download).
+Traceability comes from the checks before upload: no export from uncommitted code here or in
+defile-dataset, none from a commit not pushed. The dataset is still copied in from a local build
+(`--dataset`, a snapshot in `data/count/dataset/`); once defile-dataset has releases, the same
+option will take one.
+
 ## Explore
 
 **The Explore export is a separate, raw aggregation of the release** (`src/defile_explore/`,

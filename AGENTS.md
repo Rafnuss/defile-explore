@@ -78,6 +78,9 @@ done for all taxa; otherwise add an exception to `src/defile_explore/overrides.y
   isort at line length 99, docformatter, mdformat, codespell).
 - `data/` and `logs/` are generated: never commit them. The release is copied into
   `data/count/dataset/` by `scripts/build_explore.py --dataset <dir>`.
+- The build runs locally, never in CI (30-40 min on a runner): `scripts/publish_explore.py`
+  uploads the export and the viewer to a release, from which Pages and defileViz deploy. It
+  refuses a build from uncommitted code; never loosen that check to publish.
 - Builds are verbose (pygam warnings, per-taxon progress): redirect to `logs/` and grep.
 - `data/cache/` holds the shared stage and each taxon's trend fit, keyed by the release and by
   the source code of the modules that made them, so a code change invalidates them by itself.

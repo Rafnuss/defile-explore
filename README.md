@@ -27,12 +27,16 @@ uv run pytest
 
 ## Build the export
 
+The release comes from defile-dataset, so rebuild it there first (`uv run python scripts/build_dataset.py`): `--dataset` copies whatever is in its `output/` at that moment, and
+the build is only as current as that copy. A release without `parent_taxon_id` in `taxonomy.csv`
+is refused.
+
 ```bash
 # copy a defile-dataset release into data/count/dataset/, then build data/explore/
-uv run python scripts/build_explore.py --dataset ../defile-dataset/output
+uv run python scripts/build_explore.py --dataset ../defile-dataset/output > logs/build.log 2>&1
 
 # rebuild from the copied release (cached: seconds when only a block changed)
-uv run python scripts/build_explore.py
+uv run python scripts/build_explore.py > logs/build.log 2>&1
 uv run python scripts/build_explore.py --taxa "Red Kite" "Hen Harrier"   # only these taxa
 
 # QA viewer: logs/viewer/index.html, every full-tier taxon with all its model output
@@ -41,7 +45,46 @@ uv run python scripts/explore_viewer.py
 uv run python scripts/species_compare.py
 ```
 
+## Publish
+
+The build runs here, not in CI (30-40 minutes on a GitHub runner); CI only runs the tests. After a
+full build and the viewer, from committed code in both repos (pushed here):
+
+```bash
+uv run python scripts/publish_explore.py --dry-run   # the checks and the zips only
+uv run python scripts/publish_explore.py
+```
+
+It uploads `explore.zip` (the export) and `viewer.zip` (the viewer and the species comparison) to
+the rolling `dev` pre-release of this repo, replacing the previous ones, and starts
+`.github/workflows/pages.yml`, which deploys the viewer to GitHub Pages. defileViz downloads
+`explore.zip` from that release when it deploys. It refuses an export built from uncommitted code
+here or in defile-dataset (the manifest says so), from another commit than HEAD, from a `--taxa`
+build, or with an older viewer. A versioned release later is `--tag`.
+
+Time, on a 12-core Mac (all cores, `--workers` to change): a build after a new release or a
+code change in the model takes about 5.5 minutes (the shared stage of time-of-day profiles,
+about 2.5 minutes, then the 96 trend fits and their benchmark in parallel); one with nothing
+changed takes about 15 seconds, and a change to a block downstream of the trend refits nothing
+(`data/cache/`, `--no-cache` to ignore it). The build is verbose (pygam warnings, per-taxon
+progress): redirect it to `logs/` and grep, as above; the summary at the end gives the tiers,
+trends and stories. A build that stops silently with no traceback was killed from outside
+(a second build started on the same folder, or a closed terminal): run it again.
+
 `data/` and `logs/` are generated and never committed.
+
+## Group taxa are read as everything below them
+
+defile-dataset gives each taxon a `parent_taxon_id` (`taxonomy/parent_taxa.csv` there: a species
+points to its smallest enclosing "sp." or slash taxon, a subspecies to its species). A taxon with
+taxa below it is exported as the sum of its own birds and everything below it, at any depth, and
+lists them in `members` (`export.add_rollups`): "harrier sp." is all harriers, "swallow sp." all
+swallows and martins, a species its subspecies. Its trend, profile and start year are those of the
+sum. A group (not a species) is left out (tier `excluded`, no page, its own series untouched) when
+it is alone (fewer than `ROLLUP_MIN_BELOW` taxa below it), too large (more than
+`ROLLUP_MAX_BELOW`: "bird sp.", "passerine sp.") or when one taxon is more than
+`ROLLUP_MAX_SHARE` of its birds. `DECISIONS.md` has the reasoning; a wrong parent is fixed in
+defile-dataset, not here.
 
 ## How a species file is made
 

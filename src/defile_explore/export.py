@@ -484,6 +484,11 @@ def add_rollups(
     all birds counted under it), whose own series is left as it was. Sums of all taxa no longer
     reconcile with `count.csv`, so the reconciliation uses the release taxa.
     """
+    if "parent_taxon_id" not in taxonomy:
+        raise SystemExit(
+            "The release has no `parent_taxon_id` in taxonomy.csv: rebuild defile-dataset and "
+            "copy it again (`--dataset`)."
+        )
     below = descendants(taxonomy.set_index("taxon_id")["parent_taxon_id"])
     birds = days.groupby("taxon_id")["count"].sum()
     rank = taxonomy.set_index("taxon_id")["taxon_rank"]

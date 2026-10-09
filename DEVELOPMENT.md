@@ -86,5 +86,4 @@ intervals apart). Hard to read, and the keep rule passes too much for rare taxa.
 ## Publishing
 
 The species files grew from 8 to 18 MB in all (benchmark trials, episodes): check what the page
-needs before publishing. How the export reaches defileViz (copy into `public/data/explore/`, a release asset, or the GCE
-host the forecasts use) is open, and so is the license of the exported data.
+needs before publishing. The license of the exported data is open (defile-dataset's is too).
