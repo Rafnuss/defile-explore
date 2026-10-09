@@ -96,6 +96,8 @@ SMOOTH = ("year", "episode")  # left out of the smooth trend, season curves and 
 # 2025-07-27, c = 0.0004, would be a 190 000-bird day): it is neither fitted nor conditioned on,
 # and its birds are added to the filled total as they are (`extra`).
 MIN_COVERAGE = 0.1
+# birds per full day at which a day's information is evaluated, at least (`information_weights`)
+MIN_RATE = 0.1
 
 IRLS_MAX_ITER = 100
 IRLS_TOL = 1e-8
@@ -471,6 +473,21 @@ def penalised_information(X: Matrix, w: np.ndarray, Q: Prior) -> Factor:
     return Factor(A + Q.dense, C, D + Q.group)
 
 
+def information_weights(mu: np.ndarray, offset: np.ndarray, theta: float) -> np.ndarray:
+    """The negative binomial's expected information per row on the log scale, with each day's mean
+    taken as at least `MIN_RATE` birds per full day (times its coverage).
+
+    Where a taxon is counted but never seen (Common Wood Pigeon on 18-25 July), its rate runs to
+    zero and the information `mu` with it: the log-likelihood is flat below the mode but rises
+    steeply above it, since zeros were counted. The Gaussian (Laplace) posterior is then nearly
+    flat there (log-scale sd 12-16 against 0.4-0.5 in the passage) and a few draws held millions of
+    birds. Evaluated at `MIN_RATE`, those days are as uncertain as a rate the zeros still allow;
+    days carrying more birds are unchanged, and the mode, where the gradient is zero, too. Used for
+    the posterior (and the Laplace marginal likelihood), not for the IRLS steps.
+    """
+    return np.maximum(mu, MIN_RATE * np.exp(offset)) * theta / (theta + mu)
+
+
 def posterior_mode(X: Matrix, offset, y, Q: Prior, theta, beta):
     """Penalised IRLS (Fisher scoring with step halving) for the negative binomial log link:
 
@@ -498,8 +515,7 @@ def posterior_mode(X: Matrix, offset, y, Q: Prior, theta, beta):
         if done:
             break
     mu = np.exp(np.minimum(offset + X @ beta, ETA_MAX))
-    w = mu * theta / (theta + mu)
-    return beta, penalised_information(X, w, Q), current
+    return beta, penalised_information(X, information_weights(mu, offset, theta), Q), current
 
 
 @dataclass

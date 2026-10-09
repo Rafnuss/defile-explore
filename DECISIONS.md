@@ -316,11 +316,30 @@ untested. Three claims are classed, decided by the user on the proposal:
 - `season`: the median passage date's 80% band: a caveat above 10 days, hidden above 30; a caveat
   when the passage runs past the counted days.
 
-First build: totals 48 show / 19 caveat / 7 hide; trend 26 / 26 / 22 (hides mostly from the band,
-see `DEVELOPMENT.md`); season 25 / 45 / 4 (Song Thrush, Yellowhammer, Redwing, Western Jackdaw).
+With the posterior's information floor (next entry): totals 48 show / 19 caveat / 7 hide; trend
+37 / 30 / 7 (the seven whose totals are hidden); season 27 / 47 / 0. Before it, the blown-up bands
+hid 22 trends and 4 seasons.
 The recent-seasons test is exported and drawn but not used: a season's level is not predictable
 from earlier seasons (median error 0.8), which is a forecast question. The year-by-year marking
 (`estimated_years`, under half counted) is for the page to show, not a class.
+
+**The posterior's information is evaluated at a rate of at least 0.1 birds per full day
+(`trend.MIN_RATE`, `information_weights`).** Where a taxon is counted but never seen (Common Wood
+Pigeon on 18-25 July: 33 years of zeros), the season spline runs towards minus infinity and the
+negative binomial's information, proportional to the expected count, with it. The log-likelihood
+is flat below the mode but steep above it (zeros were counted), and the Laplace posterior, a
+Gaussian with the curvature at the mode, was flat both ways: log-scale sd 12-16 on those days
+against 0.4-0.5 in the passage, so a few draws held millions of birds. The smooth's q97.5 was 13
+million for Wood Pigeon in 2009 against a median of 29 000 (now 47 000), its median passage
+date's 80% band up to 100 days wide (Song Thrush, Redwing; now at most 29). Taking each day's
+information as at least that of 0.1 birds per full day bounds such days by a rate the zeros still
+allow, and leaves days with more birds, and the posterior mode, unchanged. It applies to the
+posterior and the Laplace marginal likelihood, not to the IRLS steps, which it slowed. Across the
+74 trend taxa: gap-filled totals within 1% (Water Pipit -8%), benchmark error 0.101 -> 0.097,
+80% / 95% interval cover 0.81 / 0.94 -> 0.79 / 0.93, smooth band median 3.6 -> 2.7 (max 5e8 ->
+14), same build time. `tests/test_explore.py` has a synthetic case (24x without the floor).
+Rejected: summing only days with expected birds (hides the problem in one output), a prior on the
+spline's edge (would need tuning per taxon).
 
 **Windows per taxon: fitted on a model window, shown over a wider view window, by rule**
 (`window@1`). The default window (18 Jul - 18 Nov) is where 80-100% of years are counted; from

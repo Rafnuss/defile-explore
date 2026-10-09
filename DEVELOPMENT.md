@@ -31,15 +31,8 @@ fit, in detail); the visitors' page is designed in defileViz. What the first ful
 The benchmark runs on every trend taxon and each claim is classed (`DECISIONS.md` -> Pipeline,
 `reliability@1`). Open:
 
-- Upper bands blown up by all-zero season edges. Where a taxon is counted but never seen (Common
-  Wood Pigeon on 18-25 July), the season spline runs towards minus infinity and the Laplace
-  posterior there is nearly flat: log-scale sd 12-16 on those days against 0.4-0.5 in the passage,
-  so a few draws hold millions of birds. The smooth's q97.5 (Wood Pigeon 2009: 13 million against a
-  median of 29 000) and the gap-filled q97.5 of years with such days uncounted follow. It probably
-  drives most of the 15 `smooth_band` hides and the 12 `wide_intervals`. Fix in the model (bound
-  the season below the passage, a prior on the spline's edge, or sum only days with expected birds)
-  and re-benchmark; the classes then follow by themselves.
-- Review the thresholds on the viewer once that is fixed (index columns totals / trend / season).
+- Review the thresholds on the viewer (index columns totals / trend / season), now that the
+  blown-up bands are fixed (`DECISIONS.md` -> Pipeline, information floor).
 - Passerine trends from 2007 rise 20-140x in some taxa (Common Reed Bunting, Common Linnet):
   check that identification and recording effort did not grow with them before showing a trend.
 - defileViz: implement the filter and the caveat sentences from the reason codes.

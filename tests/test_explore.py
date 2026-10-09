@@ -391,14 +391,14 @@ def test_nothing_adjusted_before_start_year():
 # --- trend ------------------------------------------------------------------
 
 
-def _synthetic_frame(trend: float, seed: int = 0) -> pd.DataFrame:
-    """Window days of 2005-2016 with a log-linear trend, a Gaussian season and half the days half
-    counted."""
+def _synthetic_frame(trend: float, seed: int = 0, width: float = 20) -> pd.DataFrame:
+    """Window days of 2005-2016 with a log-linear trend, a Gaussian season (sd `width` days) and
+    half the days half counted."""
     rng = np.random.default_rng(seed)
     dates = pd.date_range("2005-01-01", "2016-12-31")
     dates = dates[E.in_window(pd.Series(dates)).to_numpy()]
     f = pd.DataFrame({"date": dates, "year": dates.year, "doy": T.season_day(dates)})
-    mu = np.exp(3 + trend * (f["year"] - 2005) - ((f["doy"] - 260) / 20) ** 2 / 2)
+    mu = np.exp(3 + trend * (f["year"] - 2005) - ((f["doy"] - 260) / width) ** 2 / 2)
     f["c"] = np.where(rng.random(len(f)) < 0.5, 1.0, 0.5)
     f["y"] = rng.negative_binomial(2, 2 / (2 + mu * f["c"])).astype(float)
     return f
@@ -434,6 +434,17 @@ def test_trend_recovers_a_doubling():
     a = T.annual_totals(m, f, n=200).set_index("year")
     assert a.loc[2016, "smooth"] / a.loc[2005, "smooth"] == pytest.approx(2, rel=0.3)
     assert ((a["q2.5"] <= a["total"]) & (a["total"] <= a["q97.5"])).all()
+
+
+def test_days_never_seen_do_not_blow_up_the_bands():
+    # a narrow season: weeks at each end of the window counted every year with no bird at all.
+    # Without `MIN_RATE` the smooth's q97.5 is 24 times its median here.
+    f = _synthetic_frame(0.0, seed=3, width=5)
+    assert f.loc[f["doy"] < 220, "y"].sum() == 0
+    m = T.fit("gam", f, np.arange(2005, 2017), (int(f["doy"].min()), int(f["doy"].max())))
+    a = T.annual_totals(m, f, n=400)
+    assert (a["smooth_q97.5"] / a["smooth"]).max() < 3
+    assert (a["q97.5"] / a["total"]).max() < 3
 
 
 def test_smoothing_parameters_do_not_depend_on_the_start(monkeypatch):
