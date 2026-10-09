@@ -4,11 +4,19 @@ Only some birds are aged or sexed, and the share changes from year to year, so e
 share among the birds given an age (or sex) in that year, with a 95% Wilson interval. That assumes
 the birds aged are representative of those passing. Counters often tag only one class and leave the
 other blank (Red Kite since 2022: thousands of juveniles a year, almost no adults), which makes the
-share among aged birds meaningless. So a year counts as usable only if enough birds were aged
-(`MIN_BIRDS`, and `MIN_SHARE` of those counted) and both classes were recorded (the smaller at
-least `MIN_CLASS_SHARE` of the aged birds), and a taxon gets the panel only with `MIN_YEARS` usable
-years (`usable_years`; `settings` can override). A taxon where one class is genuinely rare loses
-years to that rule: add them back as an override, with the reason.
+share among aged birds meaningless. So a year counts only if `MIN_SHARE` of the birds counted were
+aged and both classes were recorded (the smaller at least `MIN_CLASS_SHARE` of the aged birds). A
+taxon then gets one of three displays (`usable_years`, `display`; `settings` can override the
+years):
+
+- `years`, a share per year: at least `MIN_YEARS` years with `MIN_BIRDS` birds aged or more;
+- `pooled`, one share over all the years that count: fewer such years, but at least
+  `POOLED_BIRDS` birds aged in them;
+- nothing below that.
+
+A taxon where one class is genuinely rare loses years to the class rule: add them back as an
+override, with the reason. Age and sex are in the release from 2001 only, a few hundred birds a
+year until 2019 and ten times more since.
 
 Age codes: `A` adult; `1` (first calendar year), `J` (juvenile), `I` (immature) and `2` (second
 calendar year) are one class, non-adult, because the codes used switch between years (Red Kite:
@@ -23,17 +31,18 @@ year, the birds classed and counted behind it, and when each class passes.
 import numpy as np
 import pandas as pd
 
-METHOD = "demography@3"
+METHOD = "demography@4"
 NON_ADULT = ("1", "J", "I", "2")
 ADULT = ("A",)
 SEXES = ("M", "F", "FC")
 CLASSES = {"age": (NON_ADULT, ADULT), "sex": (("M",), ("F", "FC"))}  # the two classes compared
 NAMES = {"age": ("non_adult", "adult"), "sex": ("male", "female_type")}  # ... in the block
 CODES = {"age": NON_ADULT + ADULT, "sex": SEXES}  # codes counted per year in the block
-MIN_BIRDS = 20  # aged (or sexed) birds in a year for the year to count
-MIN_SHARE = 0.05  # ... and this share of the year's birds counted
+MIN_SHARE = 0.05  # birds aged (or sexed) in a year, as a share of those counted, for it to count
 MIN_CLASS_SHARE = 0.1  # ... and the smaller class this share of them (both classes recorded)
-MIN_YEARS = 3  # usable years for a taxon to get the panel
+MIN_BIRDS = 20  # birds aged in a year for it to have a share of its own
+MIN_YEARS = 3  # ... and such years for the panel to show a share per year
+POOLED_BIRDS = 30  # birds aged over the years that count, for one pooled share
 Z95 = 1.96
 
 
@@ -61,22 +70,31 @@ def per_year(rows: pd.DataFrame, field: str, counted: pd.Series) -> pd.DataFrame
 
 
 def usable_years(rows: pd.DataFrame, field: str, counted: pd.Series) -> list[int]:
-    """Years with at least `MIN_BIRDS` birds given a `field`, `MIN_SHARE` of those counted, and
-    each of the field's two `CLASSES` at least `MIN_CLASS_SHARE` of them; empty if fewer than
-    `MIN_YEARS` such years."""
+    """The years shown: those with `MIN_SHARE` of the birds counted given a `field` and each of its
+    two `CLASSES` at least `MIN_CLASS_SHARE` of them; with `MIN_YEARS` of `MIN_BIRDS` birds or
+    more, those only (a share per year), else all of them if they hold `POOLED_BIRDS` (one pooled
+    share); else none."""
     g = per_year(rows, field, counted)
     a, b = (g[[c for c in cls if c in g]].sum(axis=1) for cls in CLASSES[field])
     n = a + b
-    ok = (n >= MIN_BIRDS) & (n >= MIN_SHARE * g["counted"])
-    ok &= np.minimum(a, b) >= MIN_CLASS_SHARE * n
-    years = [int(y) for y in g.index[ok]]
-    return years if len(years) >= MIN_YEARS else []
+    ok = (n > 0) & (n >= MIN_SHARE * g["counted"]) & (np.minimum(a, b) >= MIN_CLASS_SHARE * n)
+    big = ok & (n >= MIN_BIRDS)
+    if big.sum() >= MIN_YEARS:
+        return [int(y) for y in g.index[big]]
+    return [int(y) for y in g.index[ok]] if n[ok].sum() >= POOLED_BIRDS else []
+
+
+def display(n: pd.Series) -> str:
+    """`years` (a share per year) with `MIN_YEARS` years of `MIN_BIRDS` birds classed (`n`, by
+    year), else `pooled`."""
+    return "years" if (n >= MIN_BIRDS).sum() >= MIN_YEARS else "pooled"
 
 
 def share_block(rows: pd.DataFrame, counted: pd.Series, years: list[int], field: str):
     """The share of the field's first class (`CLASSES`, named by `NAMES`) per usable year and over
-    them all, with the birds classed (`n`, either class) and counted (`counted`) behind each, and
-    when each class passes (cumulative share by day of year); None without usable years."""
+    them all, how to show it (`display`), with the birds classed (`n`, either class) and counted
+    (`counted`) behind each, and when each class passes (cumulative share by day of year); None
+    without usable years."""
     if not years:
         return None
     first, second = CLASSES[field]
@@ -99,6 +117,7 @@ def share_block(rows: pd.DataFrame, counted: pd.Series, years: list[int], field:
             timing[f"{cls}_birds"] = float(by_day[cls].sum())
     return {
         "method": METHOD,
+        "display": display(n),
         "classes": list(names),
         "years": years,
         "n": n.to_numpy(),

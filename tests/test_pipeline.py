@@ -7,8 +7,10 @@ import pytest
 
 from defile_explore import accounts as A
 from defile_explore import benchmark as B
+from defile_explore import catalogue as C
 from defile_explore import daytime as Y
 from defile_explore import demography as G
+from defile_explore import export as E
 from defile_explore import pipeline as L
 from defile_explore import reliability as Q
 from defile_explore import remarks as M
@@ -30,6 +32,7 @@ def frame(rates: dict, c: float = 1.0) -> pd.DataFrame:
                     "doy": 200 + i,
                     "c": c if counted else 0.0,
                     "y": b if counted else 0,
+                    "extra": 0.0,
                 }
             )
     return pd.DataFrame(rows)
@@ -68,6 +71,50 @@ def test_days_beyond_the_model_window_are_shown_but_not_in_the_total():
     assert b["doy"].tolist() == [200, 201, 202, 203, 204]
     assert b["share"][0].tolist()[:2] == [0.5, 0.5] and b["share"][0][4] == 2.5
     assert b["passage"]["counted"].tolist() == [1]
+
+
+def test_passage_dates_of_draws_are_those_of_each_series():
+    rng = np.random.default_rng(0)
+    doy = np.arange(200, 230)
+    draws = rng.gamma(0.5, 10, (6, len(doy)))
+    draws[2] = 0.0  # an empty draw has no dates
+    q = S.quantiles_of_draws(doy, draws)
+    for d, row in zip(draws, q):
+        if d.sum() > 0:
+            assert row == pytest.approx(S.cumulative_quantiles(doy, d))
+    assert np.isnan(q[2]).all()
+
+
+def test_a_gap_filled_season_has_every_model_day_and_dates_from_the_draws():
+    f = frame({2020: [10, np.nan, 30, np.nan, 50]})  # doy 200..204, two days not counted
+    draws = np.array([[10, 20, 30, 40, 50], [10, 0, 30, 80, 50]], float)
+    fill = {
+        "days": f[["year", "doy"]].assign(total=draws.mean(axis=0)),
+        "passage": S.passage_from_draws(f, draws),
+        "chance": S.chance_from_draws(f, draws, 2020),
+    }
+    b = S.season_block(f, 2020, fill=fill)
+    assert b["source"] == "gam"
+    assert b["share"][0] == pytest.approx(draws.mean(axis=0) / draws.mean(axis=0).sum())
+    assert np.isnan(b["count"][0][[1, 3]]).all() and b["count"][0][2] == 30  # counted days only
+    p = b["passage"].iloc[0]
+    assert p["counted"] == 0.6 and p["q50_lo"] <= p["q50"] <= p["q50_hi"]
+    # a day not counted weighs its probability: day 201 holds 10+ birds in one draw of two
+    assert fill["chance"]["at_least_10"].tolist() == [1, 0.5, 1, 1, 1]
+    assert b["chances"]["at_least_10"][0] == pytest.approx(0.9)
+
+
+def test_a_year_with_no_bird_counted_keeps_no_dates_and_no_shares():
+    f = frame({2020: [10, 20, 30], 2021: [0, 0, 0]})
+    draws = np.tile([5.0, 10.0, 5.0, 1.0, 1.0, 1.0], (4, 1))  # the model puts birds in 2021
+    fill = {
+        "days": f[["year", "doy"]].assign(total=draws.mean(axis=0)),
+        "passage": S.passage_from_draws(f, draws),
+        "chance": S.chance_from_draws(f, draws, 2021),
+    }
+    b = S.season_block(f, 2021, fill=fill)
+    assert np.isnan(b["passage"].set_index("year").loc[2021, "q50"])
+    assert not np.isfinite(b["share"][1]).any() and np.isfinite(b["share"][0]).all()
 
 
 def test_chances_count_days_reaching_each_threshold():
@@ -111,6 +158,14 @@ def test_a_late_passage_extends_to_where_enough_years_were_counted():
     assert w["model"][0] == lo and w["beyond_counting"] == ["late"]
 
 
+def test_a_trickle_of_late_birds_is_not_passing_beyond_counting():
+    lo, hi = W.default_window()
+    share = lambda d: 1.0 if d <= hi else 0.0  # noqa: E731  (nothing counted after 18 Nov)
+    rate = lambda d: 100.0 if 260 <= d <= 290 else 1.0  # noqa: E731
+    w = W.windows(season_frame(rate, share))
+    assert w["edge_shares"][1] < W.EDGE_SHARE and w["beyond_counting"] == []
+
+
 def test_the_default_window_is_never_cut():
     lo, hi = W.default_window()
     share = lambda d: 0.0 if d < lo + 10 else 1.0  # noqa: E731  (start of the window not counted)
@@ -140,6 +195,40 @@ def test_hour_rates_divide_birds_by_the_hours_counted():
     birds, hours = Y.hour_rates(hourly, sample, pd.Series([0, 0]))
     rate = birds.iloc[0] / hours.iloc[0]
     assert rate[10] == 3 and rate[11] == 6
+
+
+def test_birds_in_an_hour_barely_counted_are_left_out():
+    dates = pd.to_datetime(["2020-09-01"])
+    effort = np.zeros((1, 24))
+    effort[0, 10:12] = 1
+    effort[0, 18] = 0.1  # a block's total entered in its last minutes
+    sample = pd.DataFrame({"date": dates, "hourly": list(effort)})
+    hourly = pd.DataFrame({"date": dates[[0, 0, 0]], "hour": [10, 11, 18], "count": [4, 6, 500]})
+    birds, hours = Y.hour_rates(hourly, sample, pd.Series([0]))
+    assert birds.iloc[0, 18] == 0 and hours.iloc[0, 18] == 0 and birds.iloc[0].sum() == 10
+
+
+def test_the_profile_predicts_each_day_on_its_counted_hours_only():
+    from defile_explore.export import SLOTS, STEPS_PER_HOUR
+    from defile_explore.profile import PROFILE_DOY
+
+    slots = np.zeros(SLOTS)
+    slots[10 * STEPS_PER_HOUR : 12 * STEPS_PER_HOUR] = 1
+    sample = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2020-09-01"]),
+            "hourly": [Y.by_hour(slots) / STEPS_PER_HOUR],
+            "slots": [slots],
+        }
+    )
+    profile = np.zeros((PROFILE_DOY[1] - PROFILE_DOY[0] + 1, SLOTS))
+    profile[:, 10 * STEPS_PER_HOUR : 11 * STEPS_PER_HOUR] = 3  # three times hour 11's rate
+    profile[:, 11 * STEPS_PER_HOUR : 12 * STEPS_PER_HOUR] = 1
+    profile[:, 15 * STEPS_PER_HOUR : 16 * STEPS_PER_HOUR] = 4  # not counted: no share
+    birds = np.zeros((1, 24))
+    birds[0, 10], birds[0, 11] = 2, 6
+    x = Y.expected_birds(sample, birds, profile)
+    assert x[0, 10] == pytest.approx(6) and x[0, 11] == pytest.approx(2) and x[0, 15] == 0
 
 
 def timed(n_days: int, early_hour: int, late_hour: int):
@@ -194,6 +283,7 @@ def test_non_adult_codes_are_one_class():
     rows = pd.concat([demo_rows(y, {"1": 10, "I": 20, "A": 30}) for y in (2020, 2021, 2022)])
     counted = pd.Series(100.0, index=[2020, 2021, 2022])
     b = G.age_block(rows, counted, [2020, 2021, 2022])
+    assert b["display"] == "years"
     assert b["share"].tolist() == [0.5, 0.5, 0.5]
     assert b["overall"]["n"] == 180
     assert b["overall"]["counted"] == 300
@@ -210,10 +300,17 @@ def test_sex_is_the_male_share_against_female_types():
     assert b["timing"]["male_birds"] == 90
 
 
-def test_years_need_enough_birds_aged_and_enough_years():
+def test_few_years_with_enough_birds_aged_give_one_pooled_share():
     rows = pd.concat([demo_rows(2020, {"A": 30, "1": 20}), demo_rows(2021, {"A": 5})])
     counted = pd.Series([100.0, 100.0], index=[2020, 2021])
-    assert G.usable_years(rows, "age", counted) == []  # one usable year, MIN_YEARS needed
+    years = G.usable_years(rows, "age", counted)
+    assert years == [2020]  # 2021 has one class only
+    assert G.age_block(rows, counted, years)["display"] == "pooled"
+    rows = pd.concat([demo_rows(y, {"A": 5, "1": 5}) for y in (2020, 2021)])
+    assert G.usable_years(rows, "age", counted) == []  # under POOLED_BIRDS
+
+
+def test_years_need_enough_birds_aged_and_enough_years():
     rows = pd.concat([demo_rows(y, {"A": 30, "1": 20}) for y in (2020, 2021, 2022)])
     assert G.usable_years(rows, "age", pd.Series(100.0, index=[2020, 2021, 2022])) == [
         2020,
@@ -272,7 +369,7 @@ def test_overrides_win_over_rules_and_say_so():
     assert s["start_year"].as_dict() == {"value": 2007, "source": "override", "reason": "test"}
     assert s["sex_years"].value == [2005]  # 2030 is after the last complete season
     assert s["trend"].source == "rule" and s["trend"].value is True
-    assert links["ebba2"].endswith("/Milvus-milvus/ebba2/occurrence/")
+    assert links["ebba2"].endswith("/Milvus-milvus/ebba2/abundance/")
     assert "/2422/101/" in links["trektellen"]
 
 
@@ -287,6 +384,7 @@ def test_no_trend_below_the_full_tier():
 def test_best_hours_are_the_fewest_holding_the_share():
     profile = np.zeros((PROFILE_DOY[1] - PROFILE_DOY[0] + 1, 24))
     profile[:, 10], profile[:, 11], profile[:, 12] = 0.5, 0.3, 0.2
+    profile = np.repeat(profile, E.STEPS_PER_HOUR, axis=1) / E.STEPS_PER_HOUR
     assert L.best_hours(profile, 250) == {"from": 10, "to": 12, "share": 0.8}
 
 
@@ -384,6 +482,8 @@ def reliability_inputs(**kw) -> dict:
         "interval_ratio": 1.3,
         "smooth_band": 1.5,
         "passage_band": 3.0,
+        "tails_band": 5.0,
+        "season_birds": 500.0,
         "beyond_counting": [],
         "profile": "own",
     }
@@ -414,10 +514,34 @@ def test_an_undetermined_passage_date_hides_the_season():
     assert {r["code"] for r in c["season"]["reasons"]} == {"passage_band", "beyond_counting"}
 
 
+def test_uncertain_first_and_last_dates_are_a_caveat_that_hides_the_lines():
+    c = Q.classes(reliability_inputs(tails_band=20.0))
+    assert c["season"] == {
+        "class": "caveat",
+        "reasons": [{"code": "tails_band", "level": "caveat"}],
+    }
+    c = Q.classes(reliability_inputs(season_birds=20.0))
+    assert c["season"] == {
+        "class": "caveat",
+        "reasons": [{"code": "few_birds", "level": "caveat"}],
+    }
+    assert Q.element("trend.passage_q", "caveat") == "hide"
+    assert Q.element("key_numbers.passage", "caveat") == "caveat"
+
+
+def test_a_season_whose_totals_are_hidden_falls_back_to_the_counts():
+    assert Q.element("season.share", "hide") == "show"  # built from the counts, then shown
+    assert Q.element("season.share", "caveat") == "caveat"
+    assert not Q.fills_season(None)
+    assert not Q.fills_season({"totals": {"class": "hide"}})
+    assert Q.fills_season({"totals": {"class": "caveat"}})
+
+
 def test_each_element_takes_its_claims_class():
     trend = {
         "annual": [
-            {"year": y, "observed_share": 0.4 if y == 2001 else 0.9, "q10": 90.0, "q90": 110.0,
+            {"year": y, "observed": 100.0, "observed_share": 0.4 if y == 2001 else 0.9,
+             "q10": 90.0, "q90": 110.0,
              "smooth_q2.5": 10.0, "smooth_q97.5": 500.0}
             for y in (2000, 2001)
         ],  # fmt: skip
@@ -429,3 +553,45 @@ def test_each_element_takes_its_claims_class():
     assert q["elements"]["trend.annual.smooth"] == q["elements"]["key_numbers.trend"] == "hide"
     assert q["elements"]["trend.annual.total"] == "show"
     assert q["estimated_years"] == [2001]
+
+
+# --- catalogue ---------------------------------------------------------------------------------
+
+
+def test_a_slash_between_orders_takes_the_first_orders_group():
+    assert C.group_of("Accipitriformes", "Milvus milvus") == "raptors"
+    assert C.group_of(None, "Accipitriformes/Falconiformes sp.") == "raptors"
+    assert C.group_of(None, "Aves sp.") == C.OTHER
+
+
+def test_the_curated_highlights_load():
+    assert len(C.load_highlights(pd.read_csv(C.HIGHLIGHTS_FILE, sep="\t")["taxon_id"])) > 20
+    with pytest.raises(ValueError):
+        C.load_highlights(["nope"])
+
+
+def test_highlights_are_curated_full_tier_taxa():
+    taxa = pd.DataFrame(
+        {
+            "taxon_id": ["a", "b", "c", "d"],
+            "scientific_name": ["A a", "B b", "C c", "D sp."],
+            "taxon_rank": ["species", "species", "species", "spuh"],
+            "order": ["Passeriformes"] * 4,
+            "tier": ["full", "full", "short", "full"],
+            "members": [None] * 4,
+        }
+    )
+    taxonomy = taxa[["taxon_id"]].assign(ebird_code=["x4", "x3", "x2", "x1"])
+    ebird = pd.DataFrame({"SPECIES_CODE": ["x1", "x2", "x3", "x4"], "TAXON_ORDER": [1, 2, 3, 4]})
+    annual = [{"year": y, "window": 500} for y in range(2016, 2026)]
+    shown = {"totals": {"class": "show"}}
+    pages = {
+        "a": {"annual": annual, "reliability": shown},
+        "b": {"annual": annual, "reliability": {"totals": {"class": "caveat"}}},
+        "c": {"annual": annual, "reliability": None},
+        "d": {"annual": annual, "reliability": shown},
+    }
+    t = C.catalogue(taxa, taxonomy, ebird, pages, 2025, {"a", "c"}).set_index("taxon_id")
+    assert t.index.tolist() == ["d", "c", "b", "a"]  # eBird's sequence
+    assert t["story"].to_dict() == {"d": "full", "c": None, "b": "caveat", "a": "full"}
+    assert t["highlight"].to_dict() == {"d": False, "c": False, "b": False, "a": True}

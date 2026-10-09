@@ -36,16 +36,20 @@ def iso(t: pd.Timestamp) -> str:
 
 
 def _surveys(rows: list[tuple]) -> pd.DataFrame:
-    """Rows: (survey id, local start, local end[, coverage[, era]]), as 'YYYY-MM-DD HH:MM'."""
+    """Rows: (survey id, local start, local end[, status[, era]]), as 'YYYY-MM-DD HH:MM'.
+
+    Status: `complete`, `weather` (a weather stop) or `incomplete`.
+    """
     out = []
     for r in rows:
-        sid, a, b, coverage, era = (*r, "complete", "trektellen")[:5]
+        sid, a, b, status, era = (*r, "complete", "trektellen")[:5]
         out.append(
             {
                 "survey_id": sid,
                 "datetime": f"{iso(utc(a))}/{iso(utc(b))}",
                 "recording_era": era,
-                "survey_coverage": coverage,
+                "survey_complete": "false" if status == "incomplete" else "true",
+                "weather_stop": "true" if status == "weather" else None,
             }
         )
     return C.parse_surveys(pd.DataFrame(out))
@@ -91,6 +95,11 @@ def solar_bins(*spans: tuple, shift: float) -> np.ndarray:
     return out
 
 
+def slot_profile(hourly: np.ndarray) -> np.ndarray:
+    """A profile given by hour, spread evenly over each hour's slots."""
+    return np.repeat(hourly, E.STEPS_PER_HOUR, axis=-1) / E.STEPS_PER_HOUR
+
+
 def test_solar_noon_moves_on_the_clock_not_in_solar_time():
     days = pd.Series(pd.to_datetime(["2023-08-01", "2023-10-28", "2023-10-29", "2023-11-03"]))
     noon = 12 + E.solar_shift(days)
@@ -105,9 +114,9 @@ def test_effort_is_the_union_of_complete_intervals_by_solar_hour():
         [
             ("a", f"{DAY} 08:30", f"{DAY} 10:00"),
             ("b", f"{DAY} 10:00", f"{DAY} 10:45"),
-            ("c", f"{DAY} 12:00", f"{DAY} 13:00", "partial"),
-            ("d", "2023-08-02 08:00", "2023-08-02 12:00", "none"),
-            ("e", "2023-08-03 09:00", "2023-08-03 10:00", "unknown"),
+            ("c", f"{DAY} 12:00", f"{DAY} 13:00", "incomplete"),
+            ("d", "2023-08-02 08:00", "2023-08-02 12:00", "weather"),
+            ("e", "2023-08-03 09:00", "2023-08-03 10:00", "incomplete"),
         ]
     )
     e = E.build_effort(s).set_index(E.build_effort(s)["date"].dt.strftime("%Y-%m-%d"))
@@ -116,10 +125,22 @@ def test_effort_is_the_union_of_complete_intervals_by_solar_hour():
     assert (d["first"].strftime("%H:%M"), d["last"].strftime("%H:%M")) == ("08:30", "10:45")
     shift = E.solar_shift(pd.Series([pd.Timestamp(DAY)])).iloc[0]
     assert d["hourly"] == pytest.approx(solar_bins((8.5, 10.75), shift=shift))
-    assert d["partial_hours"] == 1 and d["periods"] == 2
+    assert E.by_hour(d["slots"]) / E.STEPS_PER_HOUR == pytest.approx(d["hourly"])
+    t = (np.arange(E.SLOTS) + 0.5) / E.STEPS_PER_HOUR + shift  # each slot's midpoint, clock time
+    inside = (t > 8.5 + 1 / 24) & (t < 10.75 - 1 / 24)
+    outside = (t < 8.5 - 1 / 24) | (t > 10.75 + 1 / 24)
+    assert (d["slots"][inside] == 1).all() and (d["slots"][outside] == 0).all()
+    assert d["incomplete_hours"] == 1 and d["periods"] == 2
+    # A weather stop is counted (no bird passed) but is not hours of counting.
+    w = e.loc["2023-08-02"]
+    assert (
+        w["hours"] == 0
+        and w["weather_hours"] == 4
+        and E.by_hour(w["slots"]).sum() / E.STEPS_PER_HOUR == 4
+    )
     assert e["state"].to_dict() == {
         DAY: "counted",
-        "2023-08-02": "not_counted",
+        "2023-08-02": "counted",
         "2023-08-03": "uncertain",
     }
 
@@ -235,6 +256,11 @@ def test_partial_year_is_a_season_in_progress():
     assert E.partial_years(days.iloc[:1]) == []
 
 
+def test_json_has_no_nan():
+    out = E.dumps({"a": float("nan"), "b": [np.float64("nan"), np.inf, 1.23456], "c": np.nan})
+    assert out == '{"a":null,"b":[null,null,1.235],"c":null}'
+
+
 def test_json_values():
     assert E.dumps({"d": pd.Timestamp("2020-01-02"), "t": pd.Timestamp("2020-01-02 08:30")}) == (
         '{"d":"2020-01-02","t":"08:30"}'
@@ -277,7 +303,13 @@ def _effort(rows: list[tuple]) -> pd.DataFrame:
         for h, f in cover.items():
             hourly[h] = f
         out.append(
-            {"date": pd.Timestamp(date), "hourly": hourly, "hours": hourly.sum(), "state": state}
+            {
+                "date": pd.Timestamp(date),
+                "slots": np.repeat(hourly, E.STEPS_PER_HOUR),
+                "hourly": hourly,
+                "hours": hourly.sum(),
+                "state": state,
+            }
         )
     return pd.DataFrame(out)
 
@@ -306,6 +338,7 @@ def test_coverage_index_and_adjusted_days():
     n = P.PROFILE_DOY[1] - P.PROFILE_DOY[0] + 1
     profile = np.zeros((n, E.HOURS))
     profile[:, [10, 11]] = 0.5
+    profile = slot_profile(profile)
     effort = _effort(
         [
             ("2020-08-01", {10: 1, 11: 1}),  # c = 1
@@ -331,11 +364,48 @@ def test_coverage_index_and_adjusted_days():
     assert d["2020-08-01"] == 40 and np.isnan(d["2020-08-03"]) and np.isnan(d["2020-08-04"])
 
 
+def test_a_passage_tied_to_dusk_keeps_its_place_as_the_days_shorten():
+    doy_grid = np.arange(P.PROFILE_DOY[0], P.PROFILE_DOY[1] + 1)
+    dawn, dusk = P.twilight(doy_grid)
+    rows = []
+    for doy in range(200, 321, 4):  # birds only in the last full hour before dusk
+        last = int(np.floor(dusk[doy - doy_grid[0]])) - 1
+        for hour in range(int(np.ceil(dawn[doy - doy_grid[0]])), last + 1):
+            rows.append({"doy": doy, "hour": hour, "ratio": 10.0 * (hour == last), "weight": 1.0})
+    p = P.fit_profile(pd.DataFrame(rows), doy_grid, P.daylight(doy_grid))
+    for doy in (210, 310):
+        i = doy - doy_grid[0]
+        peak = (np.argmax(p[i]) + 0.5) / E.STEPS_PER_HOUR
+        assert dusk[i] - 2 < peak < dusk[i]
+        assert p[i, (np.arange(E.SLOTS) + 0.5) / E.STEPS_PER_HOUR > dusk[i] + 0.1].sum() == 0
+
+
+def test_coverage_integrates_the_profile_over_the_minutes_counted():
+    n = P.PROFILE_DOY[1] - P.PROFILE_DOY[0] + 1
+    t = (np.arange(E.SLOTS) + 0.5) / E.STEPS_PER_HOUR
+    profile = np.tile(np.where((t > 8) & (t < 12), t - 8, 0), (n, 1))  # rising from 8 to 12
+    profile /= profile.sum(axis=1, keepdims=True)
+    slots = ((t > 11.5) & (t < 12)).astype(float)  # the last half hour, the busiest
+    effort = pd.DataFrame({"date": [pd.Timestamp(DAY)], "slots": [slots]})
+    # ∫ (t - 8) dt over 11.5-12 / over 8-12 = (16 - 12.25) / 2 / 8
+    assert P.coverage(effort, profile).iloc[0] == pytest.approx(3.75 / 16, rel=1e-3)
+
+
+def test_profile_day_is_the_curve_on_one_day_per_hour():
+    n = P.PROFILE_DOY[1] - P.PROFILE_DOY[0] + 1
+    profile = np.zeros((n, E.SLOTS))
+    profile[:, 10 * E.STEPS_PER_HOUR : 12 * E.STEPS_PER_HOUR] = 1 / (2 * E.STEPS_PER_HOUR)
+    d = P.profile_day(profile, 259.6)
+    assert d["doy"] == 260 and d["start"] == 10 and d["per_hour"] == E.STEPS_PER_HOUR
+    assert d["p"] == pytest.approx([0.5] * 2 * E.STEPS_PER_HOUR)  # half the day in each hour
+    assert P.profile_day(profile, np.nan)["doy"] == P.PROFILE_DAY_DEFAULT
+
+
 def test_profile_table_steps_through_the_season():
     n = P.PROFILE_DOY[1] - P.PROFILE_DOY[0] + 1
-    t = P.profile_table(np.full((n, E.HOURS), 1 / E.HOURS))
+    t = P.profile_table(np.full((n, E.SLOTS), 1 / E.SLOTS))
     assert t["doy"][0] == P.PROFILE_DOY[0] and t["doy"][1] - t["doy"][0] == P.PROFILE_EXPORT_STEP
-    assert len(t["p"][0]) == E.HOURS
+    assert t["p"][0] == pytest.approx([1 / E.HOURS] * E.HOURS, abs=1e-4)
 
 
 def test_start_year_targets_from_1993_others_when_recorded_systematically():
@@ -351,61 +421,67 @@ def test_start_year_targets_from_1993_others_when_recorded_systematically():
     assert E.start_year("Passeriformes", "Hirundinidae", trickle, 2025) == E.ALL_GROUPS_FROM
 
 
-def test_combined_series_sum_their_members():
+def test_group_series_sum_everything_below_them():
     taxonomy = pd.DataFrame(
         {
-            "taxon_id": ["a", "b", "c", "x"],
-            "scientific_name": ["Columba palumbus", "Columba oenas", "Columba sp.", "Other"],
-            "english_name": ["A", "B", "C", "X"],
-            "taxon_rank": ["species", "species", "spuh", "species"],
-            "order": ["Columbiformes"] * 4,
-            "family": ["Columbidae"] * 4,
+            "taxon_id": ["a", "b", "c", "x", "top", "o"],
+            "scientific_name": ["A", "B", "C sp.", "X", "Top sp.", "O"],
+            "english_name": ["A", "B", "C", "X", "Top", "O"],
+            "taxon_rank": ["species", "species", "spuh", "species", "spuh", "species"],
+            "order": ["Columbiformes"] * 5 + ["Passeriformes"],
+            "family": ["Columbidae"] * 4 + [None, "Corvidae"],
+            "parent_taxon_id": ["c", "c", "top", "top", None, "top"],
         }
-    )
-    taxonomy = pd.concat(
-        [
-            taxonomy,
-            pd.DataFrame(
-                {
-                    "taxon_id": [f"h{i}" for i in range(5)],
-                    "scientific_name": E.COMBINED["combined-hirundinidae"]["members"],
-                    "english_name": list("HIJKL"),
-                    "taxon_rank": "species",
-                    "order": "Passeriformes",
-                    "family": "Hirundinidae",
-                }
-            ),
-        ],
-        ignore_index=True,
     )
     day = pd.Timestamp("2020-09-01")
     days = pd.DataFrame(
         {
-            "taxon_id": ["a", "c", "x"],
-            "date": [day] * 3,
-            "count": [10.0, 30.0, 99.0],
-            "reverse": [np.nan, 2.0, np.nan],
-            "local": [np.nan] * 3,
-            "qualifiers": [">", "~", ""],
-            "timed": [1.0, 0.0, 1.0],
+            "taxon_id": ["a", "c", "x", "o"],
+            "date": [day] * 4,
+            "count": [10.0, 30.0, 99.0, 1.0],
+            "reverse": [np.nan, 2.0, np.nan, np.nan],
+            "local": [np.nan] * 4,
+            "qualifiers": [">", "~", "", ""],
+            "timed": [1.0, 0.0, 1.0, 1.0],
         }
     )
     hourly = pd.DataFrame(
         {"taxon_id": ["a", "x"], "date": [day] * 2, "hour": [9, 9], "count": [10, 99]}
     )
-    t, d, h = E.add_combined(taxonomy, days, hourly)
-    row = d[d["taxon_id"] == "combined-columba"].iloc[0]
+    t, d, h = E.add_rollups(taxonomy, days, hourly)
+    row = d[d["taxon_id"] == "c"].iloc[0]  # c = itself + a + b
     assert row["count"] == 40 and row["reverse"] == 2 and np.isnan(row["local"])
     assert row["qualifiers"] == ">~" and row["timed"] == pytest.approx(0.25)
-    assert h.loc[h["taxon_id"] == "combined-columba", "count"].tolist() == [10]
-    members = t.set_index("taxon_id").loc["combined-columba", "members"]
-    assert members == ["a", "b", "c"]
-    assert len(d) == len(days) + 1  # no swallow records, no combined swallow days
+    assert h.loc[h["taxon_id"] == "c", "count"].tolist() == [10]
+    t = t.set_index("taxon_id")
+    assert t.loc["c", "members"] == ["c", "a", "b"]
+    assert not E.has_members(t.loc["a", "members"])
+    # "top": x is 99 of its 140 birds (70%), so it is rolled up; a dominated group is not
+    assert E.has_members(t.loc["top", "members"]) and not t.loc["top", "rollup_excluded"]
+    dominant = days.assign(count=days["count"].where(days["taxon_id"] != "x", 9999.0))
+    t2, d2, _ = E.add_rollups(taxonomy, dominant, hourly)
+    assert t2.set_index("taxon_id").loc["top", "rollup_excluded"]
+    # alone: one taxon below it
+    lone = taxonomy.assign(parent_taxon_id=["c", None, "top", "top", None, "top"])
+    assert E.add_rollups(lone, days, hourly)[0].set_index("taxon_id").loc["c", "rollup_excluded"]
+    assert len(d) == len(days) + 1  # "top" now has a series of its own
+    # a species is always rolled up with its subspecies, alone and dominant as they are
+    sub = taxonomy.assign(
+        taxon_rank=["species", "species", "spuh", "species", "spuh", "species"],
+        parent_taxon_id=["x", None, None, None, None, None],
+    )
+    t3, d3, _ = E.add_rollups(sub, days, hourly)
+    assert t3.set_index("taxon_id").loc["x", "members"] == ["x", "a"]
+    assert not t3.set_index("taxon_id").loc["x", "rollup_excluded"]
+    assert d3.loc[d3["taxon_id"] == "x", "count"].iloc[0] == 109
+    taxa = E.build_taxa(t2, d2, None)
+    assert taxa.set_index("taxon_id").loc["top", "tier"] == E.EXCLUDED_TIER
+    assert "rollup_excluded" not in taxa
 
 
 def test_nothing_adjusted_before_start_year():
     n = P.PROFILE_DOY[1] - P.PROFILE_DOY[0] + 1
-    profile = np.full((n, E.HOURS), 1 / E.HOURS)
+    profile = np.full((n, E.SLOTS), 1 / E.SLOTS)
     effort = _effort(
         [
             ("2000-08-01", {h: 1 for h in range(24)}),
@@ -418,7 +494,7 @@ def test_nothing_adjusted_before_start_year():
     c = P.coverage(effort, profile)
     assert P.adjust_days(days, effort, c, 2007)["adjusted"].isna().tolist() == [True, False]
     a = P.annual_index(days, effort, c, 2007).set_index("year")["index"]
-    assert np.isnan(a[2000]) and a[2010] == 7
+    assert np.isnan(a[2000]) and a[2010] == pytest.approx(7)
 
 
 # --- trend ------------------------------------------------------------------
@@ -467,6 +543,30 @@ def test_trend_recovers_a_doubling():
     a = T.annual_totals(m, f, n=200).set_index("year")
     assert a.loc[2016, "smooth"] / a.loc[2005, "smooth"] == pytest.approx(2, rel=0.3)
     assert ((a["q2.5"] <= a["total"]) & (a["total"] <= a["q97.5"])).all()
+
+
+def test_a_filled_day_leans_on_its_count_when_well_counted_and_on_its_neighbours_when_not():
+    f = _synthetic_frame(0.0, seed=4).assign(extra=0.0)
+    m = T.fit("gam", f, np.arange(2005, 2017), (int(f["doy"].min()), int(f["doy"].max())))
+    peak = f.index[(f["year"] == 2016) & (f["doy"] == 260)][0]
+    f.loc[peak, "y"] = 2000.0  # far above the season's ~20 birds per day
+    full, low = f.copy(), f.copy()
+    full.loc[peak, "c"], low.loc[peak, "c"] = 1.0, 0.2
+    for frame in (full, low):
+        draws = T.fill_draws(m, frame, 1.0, n=400, kappa=5.0)
+        c = frame.set_index("date")["c"]
+        d = T.filled_days(frame, draws, c).set_index("date").loc[frame.loc[peak, "date"]]
+        assert d["q10"] <= d["q90"]
+        if frame is full:
+            assert d["total"] == d["q10"] == d["q90"] == 2000  # all counted: nothing to fill
+        else:  # count / c would be 10 000; the day's rate is pulled towards its neighbours
+            assert 2000 < d["total"] < 10_000
+    zero = f.assign(c=0.0, y=0.0)
+    zero.loc[peak, ["extra"]] = 3.0  # counted below MIN_COVERAGE: filled, its birds kept
+    d = T.filled_days(zero, T.fill_draws(m, zero, 1.0, n=50), zero.set_index("date")["c"])
+    assert len(d) == len(zero)  # every day, counted or not
+    day = d.set_index("date").loc[zero.loc[peak, "date"]]
+    assert day["count"] == 3 and day["q10"] >= 3 and (d["count"].drop(peak) == 0).all()
 
 
 def test_days_never_seen_do_not_blow_up_the_bands():
@@ -537,12 +637,12 @@ def test_block_factor_matches_dense_algebra():
 def test_hour_dispersion_recovers_flocks(kappa):
     rng = np.random.default_rng(0)
     n = P.PROFILE_DOY[1] - P.PROFILE_DOY[0] + 1
-    profile = np.full((n, E.HOURS), 1 / E.HOURS)
+    profile = np.full((n, E.SLOTS), 1 / E.SLOTS)
     dates = pd.date_range("2020-08-01", periods=300)
     rate = rng.gamma(kappa / E.HOURS, 2000 / kappa, size=(len(dates), E.HOURS))
     birds = rng.poisson(rate)
     effort = pd.DataFrame(
-        {"date": dates, "state": "counted", "hourly": [np.ones(E.HOURS)] * len(dates)}
+        {"date": dates, "state": "counted", "slots": [np.ones(E.SLOTS)] * len(dates)}
     )
     days = pd.DataFrame({"date": dates, "count": birds.sum(axis=1).astype(float), "timed": 1.0})
     d, h = np.nonzero(birds)

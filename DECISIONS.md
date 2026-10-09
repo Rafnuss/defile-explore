@@ -35,7 +35,8 @@ contract, unchanged.
 
 **Effort-adjusted values use a time-of-day profile, not birds per hour.** A taxon's profile
 p(h | doy) is fitted with the model's own ratio GAM (`defile_explore.timeofday.fit_ratio_surface`, one
-implementation) on solar hours (local clock hours until 2026-10-09, see below), from days timed to the hour; a counted day's coverage `c` is
+implementation) on the day's light from civil dawn to dusk (solar hours, and local clock hours
+before, until 2026-10-09, see below), from days timed to the hour; a counted day's coverage `c` is
 the share of the profile in the hours counted, the adjusted day is count / c, and the annual index
 is Σ birds / Σ c over counted days in the window (a ratio estimator, so low-coverage days do not
 dominate). Taxa with fewer than 500 timed birds use a group profile (raptors, pigeons,
@@ -58,6 +59,40 @@ x1.45), so effort is not what separates those years. They stay visible, unadjust
 reference bands. Taxa not counted systematically in some years (passerines before ~2007) are a
 protocol matter no effort metric fixes; the dataset README has that history.
 
+**One correction per species, explained in the order of the build** (2026-10-09). A species' days
+are corrected once: by the trend GAM's gap-filled days when it has a trend whose totals are not
+hidden, otherwise by count / c; the two never stack. Fitting a simpler model for every species
+instead, shown only below an uncertainty threshold, was considered and not done: most of the ~200
+taxa without a trend have too few birds for it, and would fall back on the counts anyway. The
+README's "How a species file is made" lays the steps out, and defileViz's "How it's made" pages
+follow them: the counts, time of day and coverage, the trend model, how reliable, what the page
+shows, then age and sex.
+
+**Every counted day also gets the model's value, at any coverage (`trend.days`, 2026-10-09, asked
+by the user).** `COVERAGE_MIN` stays for the empirical layer (`count / c`, Σ birds / Σ c, the
+season panel, the window envelope), where a ratio with no model behind it needs a floor. On top,
+for taxa with a trend, each counted day in the model window gets its gap-filled full-day total
+(`trend.filled_days`): the birds counted plus the posterior predictive of the hours not counted,
+from the draws that make `trend.annual` (rate given y in c ~ gamma(θ + y, θ/μ + c), so a well-counted
+day leans on its count and a poorly counted one on its neighbours, the season and the year;
+missed birds in flocks, `kappa`). Exported as the mean and an 80% interval, classed under `totals`
+(`trend.days.total`). The mean, not the median: the missed part is skewed, and on the 2026-10
+release the medians summed to 0.87 of Σ count / c for Common Wood Pigeon days at c 0.5-0.9 (Siskin
+0.86, Red Kite 0.93), the means to 1.00. Over the 74 trend taxa, Σ filled / Σ (count / c) is 0.999
+(c 0.9-1), 1.002 (0.5-0.9), 0.995 (0.2-0.5), 0.995 (0.1-0.2), so the model agrees with the ratio
+where both exist, and the interval says how far to trust a day: q90/q10 is 1.1, 1.7, 3.9 and 7.2
+in those bands (days with at least 20 birds). 41 442 days at c 0.2-0.5 and 7 836 at 0.1-0.2 now
+have a value; below `MIN_COVERAGE` (0.1, 156 days) a day is filled as not counted, its birds
+added. Not used (yet): the pattern of the hours within a day, which needs passage correlated
+from hour to hour (DEVELOPMENT.md). Species files grow from 18 to 24 MB. defileViz draws them in the
+year panel under the totals (`PlotYearDays.vue`: birds counted as bars, the filled day as a dot
+with its 80% interval, hidden or in amber with `trend.days.total`). Two consequences of the skew,
+kept as they are: the season's total stays the median of its draws (`trend.annual.total`), so the
+days of a season can add up to a little more than it (the sum of the counted days' means over the
+season's median: median 0.99, quartiles 0.93-1.03, on the 74 trend taxa, years with uncounted days
+below 1); and on 11% of days, nearly all with no bird counted, the mean lies above q90 (a rare
+flock in the hours missed), so the interval is drawn clipped at the mean.
+
 **Explore lives in this repo, contained in `src/defile_explore/`.** It shares the forecast's release
 reader and time-of-day GAM, and a population trend fitted for Explore may later help the
 forecast (Red Kite's under-prediction of recent years is a missing trend). But the forecast never
@@ -78,14 +113,23 @@ trickle noted while the taxon was not counted is not a series ("swallow sp." 200
 a year against ~150 000 since). The floor stays low because it also penalises a real increase
 (Common Crane, ~30 a year before 2007 and 380 since). Full tier: 45 from 1993, 41 from 2007.
 
-**Combined series where names were split differently over the years** (`COMBINED`): all
-Columba pigeons (Wood Pigeon, Stock Dove, "Columba sp."; not the local Feral and Rock Pigeons), and
-all swallows and martins. "Columba sp." appears only in 2014, when the hourly sheets begin, and has
-been a quarter of the pigeons since, so Wood Pigeon's own series drops there for a recording
-reason; swallows were "swallow sp." in 1993-1999 and are increasingly identified since 2021. A
-combined series is exported like a taxon (rank `combined`, its `members`, its own profile and start
-year: pigeons 1993, swallows 2007), beside its members, which stay as they are. Its trend is the
-one to read.
+**Group taxa are read as everything below them** (`add_rollups`, replacing the hand-listed
+`COMBINED` series). defile-dataset gives each taxon a `parent_taxon_id` (`taxonomy/parent_taxa.csv`:
+the smallest enclosing "sp." or slash taxon, a subspecies's species; roots have none). A group's
+series is its own count plus every taxon below it, at any depth, under its own id (`members` lists
+them): "harrier sp." is all harriers, "Columba sp." the Columba pigeons, "swallow sp." all swallows
+and martins. It replaces `combined-columba` and `combined-hirundinidae`, which were the same sums.
+Why: a group's own count follows how far observers identified ("Columba sp." only from 2014,
+"swallow sp." in 1993-1999), so its own series is not the birds. The members' series stay as they
+are. Rock Dove and Feral Pigeon have no parent (local birds, never in a pigeon total).
+A group is not shown (tier `excluded`, no page, its own series untouched) when it is alone (fewer
+than `ROLLUP_MIN_BELOW` = 2 taxa below it: "Asio sp." is Short-eared Owl) or when one taxon is more
+than `ROLLUP_MAX_SHARE` = 90% of all the birds counted under it (the group would be that taxon) or when it is too large to say anything (more than
+`ROLLUP_MAX_BELOW` = 100 taxa below it: "bird sp." with 270 and "passerine sp." with 104; the next
+is "shorebird sp." with 50). A species is always read with its subspecies (Western Yellow Wagtail with the Blue-headed
+Wagtail, Redpoll with Lesser Redpoll), whatever their share. Rules, not a list, and not on a family. Occurrence tiers still decide the rest. Groups with their own timed
+birds get their own profile, but only taxa without `members` fit a group profile (no double
+counting).
 
 **Tiers count days with migrating birds**, not birds: `full` from 50 days over 5 years, `rare`
 at 10 days or fewer (84 / 45 / 142). Provisional, to tune once the page exists. French names come
@@ -182,8 +226,9 @@ most, and the smooth terms least. What was tried on that split (`fe09ac4` has th
   enough for totals.
 
 Result: 5.3% gap-filling error, bias +0.5%, intervals slightly wide (91% / 97% for 80% / 95%),
-Honey Buzzard still narrow (70% / 91%). Trends are exported for full-tier species and combined
-series, not for unidentified birds ("falcon sp."), whose numbers follow identification effort.
+Honey Buzzard still narrow (70% / 91%). Trends are exported for full-tier species and for group
+taxa with members (roll-ups), not for unidentified birds with nothing below them, whose numbers
+follow identification effort.
 
 **Fitting speed and convergence (2026-10).** A fit took 15-25 s and the full build ~4 min, and
 the Fellner-Schall loop did not always converge:
@@ -219,6 +264,18 @@ at the peak), and with 11 target years an 80% coverage of 0.70 is within one sta
 Across the 74 exported trends, `trend` is at its upper bound (a straight line on the log scale)
 for 27 and `shift_year` (timing constant over the years) for 26: the year levels take the
 multi-year waves, which the marginal likelihood prefers.
+
+**Effort from `survey_complete`; weather stops are zero passage (2026-10-09, decided by the user).**
+Effort took only `complete` surveys of the old `survey_coverage`, so `partial` days had no `c`
+and the trend filled them as days nobody counted, dropping their birds (Honey Buzzard 2025-09-01:
+265 counted, filled at 396 with an 80% interval of 17-1022), and days rained out (`none`) were
+filled as normal days (about 9 000 Wood Pigeons on 2025-10-23). The dataset now says it directly
+(defile-dataset `docs/survey-coverage.md`): `survey_complete` (every bird that passed is in the
+counts), `weather_stop` (counting impossible, no bird assumed), absences cut out of surveys. The
+effort's coverage slots are the union of complete surveys, weather stops included, so a rained-out
+day is counted with zero birds (`c` = 1); `hours` leaves weather stops out (`weather_hours`). A day
+with only incomplete surveys is `uncertain`. Briefly, before the dataset changed, `partial` was
+read as complete.
 
 ## Pipeline
 
@@ -300,6 +357,127 @@ after sunrise. Solar time and the share of daylight tie; solar time keeps hours 
   numbers (Red Kite 11-16 solar, was 12-17 clock).
 - A page wanting the clock adds the day's `solar_shift`: about 1.6 h in summer time, 0.5 h in
   winter time.
+
+**Day by day, the trend GAM fills gaps better than the season panel's interpolation (2026-10-09,
+test asked by the user; `scripts/analyse_gap_fill.py`).** The gap transplant of the benchmark
+(73 trend taxa with target years, 3 rotations, 1 362 target-year trials, median hidden coverage
+0.31), scored on each day with coverage hidden instead of the season. Against `season.py` as built
+(birds / c at c >= `COVERAGE_MIN`, linear interpolation between, a day kept below it losing its
+count) and against the same interpolation keeping partial counts (`interp_kept`):
+
+- days, median |log| error: GAM 0.131, interp 0.145, interp_kept 0.133; weighted by birds 0.333,
+  0.594, 0.363. Whole days hidden 0.673 / 0.869 / 0.869, partly hidden 0.112 / 0.123 / 0.114. GAM
+  better in 70 / 73 taxa than interp, 38 / 73 than interp_kept (median day error): on partial days
+  the gain over interpolation comes mostly from keeping the count; on whole days and big days it
+  is the model's.
+- the year's median passage date, mean |error|: GAM 2.7 days, interp 4.4, interp_kept 3.3 (GAM
+  closer in 66 / 73 and 53 / 73 taxa); by hidden coverage 0-0.2 / 0.2-0.4 / 0.4-0.6 / 0.6-1: GAM
+  1.2 / 2.3 / 4.3 / 3.9, interp 1.9 / 3.6 / 7.5 / 10.2. The 10% and 90% dates alike.
+- the year's total, median |log| error: GAM 0.085, interp 0.117, interp_kept 0.098; the gap grows
+  with hidden coverage (0.6-1: 0.30 / 0.74 / 0.48).
+- intervals: a day's 80% interval holds the truth on 79% of days (74% of wholly hidden days), the
+  median date's on 91% of years (93% give or take a day).
+
+So a complete series from the GAM's draws is the better base for the day-scale outputs (season
+shares, passage dates, chances), the more so the gappier the year. Switched: next entry.
+
+**One complete series per taxon: the season block from the trend's gap-filled days (`season@3`,
+2026-10-09, decided by the user after the test above).** For a taxon with a trend whose totals are
+not hidden (`reliability.fills_season`: 67 of the 74 trend taxa on the 2026-10 release), every day
+of the model window takes the mean of the `fill_draws` draws (counted or not; `trend.days` now
+holds every window day), and the season block is made of that series: the shares (no blank day in
+the model window; defileViz pales the days nobody counted, `count` null), every year's 10/50/90%
+passage dates taken in each draw (the median over draws, and `q50_lo`/`q50_hi`, the 80% band of
+the median date), and the chances, the probability over the draws that a full day holds at least
+N birds, every day of the last ten seasons weighing in (beyond the model window, well-counted days
+as before). The season fields rest on the `totals` claim (`season.share`, `season.passage`,
+`season.chances` in `reliability.ELEMENTS`); where it is hidden (Northern Lapwing, Eurasian Curlew,
+Mediterranean Gull, ...) and for taxa without a trend, the season is from the counts (`source: counts`, `count / c` and interpolation as before), so a hidden claim never hides the phenology
+(`COUNTS_FALLBACK`). A year with no bird counted keeps no dates and no shares: they would be the
+model's alone (Water Pipit 2007-2023). Against the counts version, on the 67 taxa: the median
+dates move by 0.24 days (median; mean 2.8, 90th percentile 6.8), the band is 2.3 days wide
+(median; 15 at the 90th percentile), and the old date lies in the new band in 79% of years. The
+big moves are flocking, erratic taxa where interpolation threw away a big partial day (Yellow-legged
+Gull 2011: 71 birds on 20 July at c 0.47, median date 278 -> 207); on those taxa the gap test
+favours the GAM most (Yellow-legged Gull median date error 8.7 days against 27.6). The principle
+"empirical first" becomes "the counts are always shown; the numbers come from the one fit" (AGENTS.md).
+Species files grow from 24 to 28 MB. The trend's cache key now includes `season.py`, whose code
+summarises the draws inside `taxon_trend`.
+
+**The profile stays on solar hours, not day-length units (2026-10-09, held-out test asked by the
+user; superseded the same day by the twilight axis, next entry).** `scripts/analyse_time_basis.py` fits each of the 68 own profiles on even years and scores
+odd years' timed days, then the reverse, with the GAM on solar hours (as built) or on
+tau = (t - civil dawn) / (civil dusk - civil dawn), read back on the same solar slots. Scores: the
+L1 distance between each day's observed and expected hourly shares; the same on the first and last
+counted hours of days counted from dawn or to dusk; the error of the second half of a day's
+birds predicted from the first through coverage. Solar 0.636 / 0.062 / 1.417, tau 0.636 / 0.063 /
+1.418; tau better in 48% / 52% / 46% of the 134 taxon-folds. The test can tell profiles apart: a
+uniform profile scores 0.704 / 0.070 / 1.882, and solar beats it in 95% / 77% / 83%. The two axes
+draw different curves (median total variation 0.04, up to 0.2 for Siskin in August; Red Kite
+flatter in tau, as thermals keep clock hours), but the day-to-day spread of flocks hides the
+difference. A tie, so solar hours stay: they are hours. Siskin's evening rise is there in tau too,
+so it is in the counts, not an artefact of the cut at dusk.
+
+**The profile's time axis runs from civil dawn to civil dusk, on daylight samples only, with 16
+splines (2026-10-09, asked by the user after herons, egrets and Red Kite looked wrong).** The GAM is
+fitted on tau = (t - civil dawn) / (civil dusk - civil dawn), the sun at -6 deg at both ends, from
+the samples whose hour overlaps daylight (each at the midpoint of its daylight part), with
+`PROFILE_TAU_SPLINES` = 16 (about 1 h apart). The solar-hour fit took its axis from every sample:
+three 24-hour days stretched it to 0.5-22.5 h, so its 12 splines were 2 h apart. Held-out test
+(`scripts/analyse_time_basis.py`, 68 taxa, even/odd years): l1 0.6347 vs 0.6356, edge 0.0622 vs
+0.0621, fill 1.4133 vs 1.4172, better in 93 / 80 / 86 of 134 taxon-folds (worse 41 / 54 / 48). On
+solar hours restricted to daylight the gain vanishes (35 better, 38 worse on edge): it is the
+twilight anchor with the finer axis that helps. Small on average, but it moves the ends of the day
+where they were wrong: Red Kite's last hour before dusk in October, 2,074 birds expected for 629
+counted, now 1,254; Grey Heron's September evening 2,090 expected for 2,610 counted, now 2,319.
+Tried and kept as they were: day weights `RATIO_WEIGHT_POWER` 0 and 1 against 0.5 (both worse:
+l1 better in 67 and 74 of 133 vs 93); weaker smoothing (lam 10 or 1) on Grey Heron, Great Egret
+and Red Kite, within 0.5%. Not done: forcing the rate to 0 at -6 deg. The cut there is the
+definition of a full day, not a zero rate; herons pass most in the last hour of light and go on
+into the night. Herons and egrets are lumpy: on the first and last counted hour a flat profile
+scores better than any fit (an expected flock that does not come costs more than a flat guess),
+but the fit predicts the rest of a day far better (fill 1.34 vs 1.47 Grey Heron, 0.98 vs 1.54
+Great Egret). Grey Heron's August evening peak is still sharper than the fit (1,410 counted, 946
+expected, 1-2 h before dusk), and its mornings come in about 20% lower than predicted. On the
+2026-10 release, against the solar-hour build: annual indices move 1.3% for the median full-tier
+taxon (90th percentile 4.3%, largest 20%, Common Swift, whose dawn and dusk flights now weigh more,
+so its coverage is lower: indices +9% in recent years, held-out scores slightly better); mean yearly
+coverage unchanged (median, 5-95% -0.03 to +0.02); gap benchmark mean 0.176 -> 0.165 (39 taxa
+better, 26 worse); best hours change in 23 taxa. Redwing scores worse on the new axis (l1 0.675 vs
+0.667).
+
+**"Through the day" compares like with like (`daytime@4`, 2026-10-09).** The bars were birds per
+counted hour pooled over the whole season, beside the profile on one day: an August evening hour,
+counted rarely, made a tall bar after that day's dusk (Great Egret, 19-20 h solar: 43 birds in 19
+hours counted), and a block's total noted in its last minutes made a bar of an hour barely
+counted (Red Kite, 6 Nov 2021: 517 birds at 18:30, after dusk). Now the bars pool the main passage
+(`PART_QUANTILES` 10-90%) and, on each day, only hours counted at least half
+(`PROFILE_MIN_HOUR_EFFORT`, the profile's own rule); the line (`expected`) is what the profile
+predicts for the same days: each day's birds spread over its hours used by the profile in the
+minutes counted, pooled the same way. The date x hour grid and the change test use the same hours.
+`daytime.profile` (the profile averaged over the main passage) is dropped; `profile.day` stays,
+for the coverage figure of the method page.
+
+**Entry errors go back to the source, not into rules (2026-10-09).** `scripts/check_entries.py`
+lists counts that look mistimed: a long survey's birds bunched at one end (`block_edge`), timed
+outside the survey, timed in the dark, entered twice, surveys overlapping. They are corrected in
+defile-dataset or Trektellen; the build does not drop or move them.
+
+**The profile is a continuous curve, and coverage integrates it over the minutes counted
+(2026-10-09, asked by the user).** Survey edges fall anywhere within a solar hour, so effort
+(`slots`) and the profile live on 5-minute solar slots (`export.STEPS_PER_HOUR`): the GAM is still
+fitted on hourly samples (counts are timed to the hour), each placed at its hour's midpoint, read at
+each slot's midpoint (flat beyond the first and last hour sampled), cut by the daylight fraction
+of each slot and normalised. `c` = Σ p × share of each slot counted. Kappa and the gap benchmark
+weight a timed hour by the profile within it; `profile.p`, `daytime.profile` and best hours stay
+hourly (each hour's integral), so the contract does not change. Before, the profile was one value
+per hour, read at the hour's start, and a half-counted hour got half that hour's weight. On the
+2026-10 release, against the hourly build: annual indices move 0.2% for the median full-tier
+taxon (90th percentile 0.7%, largest single year 7%, Eurasian Whimbrel); mean yearly coverage +0.001;
+gap benchmark mean 0.170 -> 0.176, paired median 0.000 (30 better, 35 worse); kappa -1% (median);
+best hours change for 5 taxa. Kept because it is the right integral, not for the numbers: the
+hourly profile was already smooth within the day, and dawn and dusk were already cut by the
+daylight fraction.
 
 **Age and sex: shares among the birds given one, only in usable years.** A year is usable with at
 least 20 birds aged (or sexed), 5% of those counted, and both classes recorded (`demography@2`),
@@ -402,11 +580,71 @@ gets:
   at least 10% of years (to 2 Dec for most late taxa). Totals, shares and the yearly passage dates
   stay those of the model window: beyond it, the gaps to fill are too long, and filling them held
   the last counted day flat to 2 Dec.
-- `passage_beyond_counting` (51 full-tier taxa): the passage still reaches the model window's
-  outer limit, so the totals are totals up to that date. A property of the count, for the page to
-  state, not a fault to fix.
+- `passage_beyond_counting` (51 full-tier taxa; 15 with `window@2`, below): the passage still
+  reaches the model window's outer limit, so the totals are totals up to that date. A property of
+  the count, for the page to state, not a fault to fix.
 
 Both windows are settings, overridable as `[MM-DD, MM-DD]` with a reason.
+
+**The viewer follows the pipeline; defileViz tells the story (2026-10-09, decided by the user).**
+The viewer is the developer's model and diagnostic tool, in pipeline order: what defileViz shows,
+configuration, counts and effort (birds, mean coverage and ratio index per year), time of day and
+coverage (the profile surface, the counted histogram), the season as counted, the trend model (with
+its components: the season of the first and last year, each year with and without its episodes
+over the counted birds per full day), validation (reliability, benchmark), and the derived blocks.
+defileViz is the visitors' page, empirical first with the model drawn on top, one question per
+section: when to see it (chances by date, time of day in clock time), how many each year, has the
+timing changed (every season as a row of days, its counted median date and the smooth one), who
+passes (age, sex), memorable days. Little text on the page; each figure's (i) opens the modal of
+the method it rests on, one modal per method rather than one long one: counting and coverage, the
+season as counted, the trend model, how reliable, age and sex, in that order on the page's "How it's
+made" strip. The modals stay in defileViz and are updated by hand from `DECISIONS.md`: some lag is
+accepted.
+
+**The export is strict JSON** (`export.dumps`): a float NaN or infinity is written as null. `json`
+writes them as `NaN`, which browsers refuse; the benchmark's ratio estimator has no interval
+(`gap_ratio.cover80`), and 127 species files did not load in defileViz.
+
+**A taxon passes beyond counting when a tenth of its passage falls in the last week counted
+(`window@2`, 2026-10-09, asked by the user: "way too sensitive").** The first test (99.5% of the
+mean passage within 5 days of the model envelope's edge) flagged 51 of the 86 full-tier taxa, most
+for a trickle of late birds, and the page said of each that "it still passes when counting ends".
+Now the share of the mean passage within the model envelope that falls in its first or last 7 days
+must reach 10% (`window.EDGE_DAYS`, `EDGE_SHARE`; `window.edge_shares` is exported). 15 taxa:
+early, Common and Alpine Swift, Sand Martin and the gulls, Purple Heron, Common Merganser (passage
+under way by 18 July); late, Common Crane (30% in the last week), Redwing, Hen Harrier, Common
+Buzzard, Peregrine and Northern Lapwing. Red Kite (8%) is no longer flagged. The page words it as
+"much of its passage falls outside the counting season".
+
+**The smooth passage dates are drawn only when the season claim is `show` (`reliability@3`,
+2026-10-09, asked by the user).** The lines on the timing panel (10%, half and 90% of the smooth
+season passed) read as a finding, and a caveat has no room on them, so a caveat hides them
+(`reliability.NO_CAVEAT`; the key number keeps its caveat). Two reasons are added to the season
+claim: `tails_band`, the 80% bands of the 10% and 90% dates (now in `trend.passage`, from the same
+draws as the median), against the same `PASSAGE_BAND`; and `few_birds`, under 50 birds counted in
+a typical season (`SEASON_BIRDS`). The bands alone do not do it: the model's smooth timing keeps
+them under 10 days even for Peregrine (4 birds a season) or Eurasian Jay. Season classes on the
+2025 release: 36 show, 37 caveat, 1 hide (was 27 / 46 / 1), so lines are drawn for 36 of the 74
+trend taxa. Reasons among the 38 others, often several: few birds 30, passing beyond counting 13
+(Common Buzzard and Common Crane for that alone), wide bands of the 10% and 90% dates 7, of the
+median 4.
+
+**Age and sex take one of three displays (`demography@4`, 2026-10-09, asked by the user).** A
+year counts when 5% of its birds were classed and the smaller class is at least 10% of them (both
+recorded). With 3 such years of 20 classed birds or more, a share per year (`display: years`);
+else one share pooled over all the years that count, if they hold 30 birds or more (`pooled`);
+else nothing. Before, a taxon needed 3 years of 20 birds or got nothing: 10 taxa. Now 17: Red
+Kite, Montagu's and Hen Harrier (age), Merlin (age), Eurasian Sparrowhawk, Great Cormorant, Grey
+Heron and the gulls gain a pooled share. Age and sex are in the release from 2001 only, a few
+hundred birds a year until 2019, ten times more since, so most per-year panels start late.
+
+**The picker's highlights are curated, not a rule (2026-10-09, asked by the user).**
+`content/highlights.tsv` lists them, seeded with the species of the Défilé's 2019 (raptors) and
+2020 (other monitored species) papers that have a page: 32. The rule tried first (a `full` story
+and 100 birds a season) left out Common Crane and Grey Heron for their caveated totals and put in
+Brambling and Common Reed Bunting. The story dot still says how good each taxon's data are.
+
+The EBBA2 link opens the abundance map (`/ebba2/abundance/`), not the occurrence map.
 
 **Key numbers** are read from the blocks, not computed apart: the main passage is the smooth
 season's 10-90% in the last year (else the pooled counted seasons of the last 10), best hours the
@@ -415,7 +653,7 @@ median of the last 10 gap-filled totals, the trend the smooth's change from the 
 chance the share of well-counted days in the main passage with at least 1 or 10 birds.
 
 **Written accounts replace the report extracts** (`accounts@1`). The page showed the paragraphs
-of the annual reports as extracted (French, unedited, and for a combined series those of its first
+of the annual reports as extracted (French, unedited, and for a group those of its own taxon
 member). It now shows authored accounts from `content/accounts/`: a general account in up to three
 sections and a short account per season, in French and English, edited from the reports and the
 2019 paper with the numbers left to the page's figures. The build reads only the two authored TSVs

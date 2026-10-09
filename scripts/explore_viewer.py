@@ -4,8 +4,10 @@ taxon with every block drawn (Plotly). It reads `data/explore/` only and compute
 it shows is what defileViz gets; a panel that needs a calculation here belongs in the pipeline.
 
 A developer's tool, focused on the model output: show everything that helps judge a fit, in full
-detail. The visitors' page is defileViz's, trimmed and narrative; it does not have to look like
-this one. Everything is drawn, including what defileViz will hide: a page opens with what defileViz
+detail, in the order of the pipeline (configuration, counts and effort, time of day and coverage,
+season day by day, trend model, validation, derived blocks). The visitors' page is defileViz's,
+trimmed and narrative, in the order of a visitor's questions; it does not have to look like this
+one. Everything is drawn, including what defileViz will hide: a page opens with what defileViz
 shows, caveats and hides (the `reliability` block's classes, applied to its `elements`), each
 figure starts with a strip saying the same for its parts, and a hidden part is greyed and labelled
 in the figure itself.
@@ -66,6 +68,7 @@ p.rn{margin:2px 0;font-size:12px;max-height:120px;overflow:auto}
 td{vertical-align:top}
 .vis{font-size:12px;margin:2px 4px 6px;padding:4px 6px;background:#f6f6f6;border-radius:4px}
 .vis b{color:#555}.why{color:#888;font-size:11px}
+.toc{font-size:12px;margin:4px 0 8px}.toc a{color:#4C78A8}
 """
 
 
@@ -114,12 +117,16 @@ CLASS_STYLE = {"show": "#e6f4ea;color:#1e6b34", "caveat": "#fff4e0;color:#8a5300
 CLAIMS = ("totals", "trend", "season")
 PARTS = {  # `reliability.ELEMENTS`: what this viewer draws of each
     "trend.annual.total": "season totals (points, 80%)",
+    "trend.days.total": "filled days (mean, 80%)",
     "key_numbers.typical_season": "key number: typical season",
     "trend.annual.smooth": "smooth trend (line, 95% band)",
     "key_numbers.trend": "key number: trend",
     "trend.passage": "modelled passage dates per year",
     "trend.passage_q": "smooth passage dates (lines)",
     "key_numbers.passage": "key number: main passage",
+    "season.share": "season day by day (gap-filled)",
+    "season.passage": "passage dates per year (gap-filled, 80%)",
+    "season.chances": "chances (gap-filled)",
 }
 HIDDEN_OPACITY = 0.3
 
@@ -183,8 +190,9 @@ def display_panel(sp: dict, tx: dict) -> str:
         rows.append((badge("hide"), "<b>trend</b>: no model (tier or settings)", "–"))
     d = sp["daytime"]
     rows += [
-        (badge("show"), "birds counted per year, empirical phenology, chances, records, "
-                        "accounts, key numbers from counts", "counts"),
+        (badge("show"), "birds counted per year, records, accounts, key numbers from counts"
+                        + ("" if sp["season"].get("source") == "gam"
+                           else ", phenology and chances (from the counts)"), "counts"),
         (badge("show") if d and d["hours"] is not None else badge("hide"),
          "passage during the day: " + ("not built" if not d or d["hours"] is None else
                                        "by date" if d["change"]["show"] else "one histogram"),
@@ -388,16 +396,32 @@ def benchmark_panel(sp: dict) -> str:
 
 def season_panel(sp: dict) -> str:
     s = sp["season"]
+    gam = s.get("source") == "gam"
     share = np.array([[np.nan if v is None else v for v in row] for row in s["share"]], float)
     zmax = float(np.nanquantile(share, 0.98)) if np.isfinite(share).any() else 1
-    count = [[None if v is None else f"{v:,.0f}" for v in row] for row in s["count"]]
+    cov = s.get("c") or [[None] * len(s["doy"])] * len(s["years"])
     dates = [doy_label(x, "%d-%b") for x in s["doy"]]
-    custom = [[[dates[j], count[i][j]] for j in range(len(dates))] for i in range(len(count))]
+
+    def cell(n, c):
+        if n is None:
+            return "not counted"
+        return f"{n:,.0f} counted" + (f", c = {c:.2f}" if c else ", c < 0.1")
+
+    custom = [[[dates[j], cell(n, c)] for j, (n, c) in enumerate(zip(nr, cr))]
+              for nr, cr in zip(s["count"], cov)]  # fmt: skip
     fig = go.Figure(go.Heatmap(x=s["doy"], y=s["years"], z=share, zmin=0, zmax=zmax,
                                colorscale="YlOrRd", colorbar=dict(title="share<br>of year"),
                                customdata=custom,
-                               hovertemplate="%{customdata[0]} %{y}: %{customdata[1]} birds "
+                               hovertemplate="%{customdata[0]} %{y}: %{customdata[1]} "
                                              "(%{z:.1%} of the season)<extra></extra>"))  # fmt: skip
+    if gam:  # days not counted, filled: hatched over
+        filled = [[d for d, n in zip(s["doy"], nr) if n is None] for nr in s["count"]]
+        fig.add_trace(go.Scatter(x=[d for f in filled for d in f],
+                                 y=[y for y, f in zip(s["years"], filled) for _ in f],
+                                 mode="markers", marker=dict(symbol="line-ew", size=4,
+                                                             line=dict(color="rgba(0,0,0,0.35)",
+                                                                       width=1)),
+                                 name="not counted (filled)", hoverinfo="skip"))  # fmt: skip
     p = {k: arr([r[k] for r in s["passage"]]) for k in s["passage"][0]}
     smooth = sp["trend"]["passage_q"] if sp["trend"] else None
     for col, dash, lab in (("q10", "dot", "10%"), ("q50", "solid", "50%"), ("q90", "dot", "90%")):
@@ -406,11 +430,16 @@ def season_panel(sp: dict) -> str:
                                      mode="lines", legendgroup=lab,
                                      line=dict(color="black", dash=dash, width=1.5),
                                      **legend(sp, "trend.passage_q", f"{lab} smooth")))  # fmt: skip
-        fig.add_trace(go.Scatter(x=p[col], y=p["year"], mode="markers", name=f"{lab} that year",
-                                 legendgroup=lab,
+        band = (dict(error_x=dict(type="data", symmetric=False, array=p["q50_hi"] - p["q50"],
+                                  arrayminus=p["q50"] - p["q50_lo"], color="black",
+                                  thickness=1.2, width=0))
+                if gam and col == "q50" else {})  # fmt: skip
+        opacity = 1 if gam else (0.3 + 0.7 * p["counted"]).tolist()
+        fig.add_trace(go.Scatter(x=p[col], y=p["year"], mode="markers", legendgroup=lab,
                                  marker=dict(color="white" if col == "q50" else "#333", size=7,
-                                             line=dict(color="black", width=1),
-                                             opacity=(0.3 + 0.7 * p["counted"]).tolist())))  # fmt: skip
+                                             line=dict(color="black", width=1), opacity=opacity),
+                                 **(legend(sp, "season.passage", f"{lab} that year") if gam
+                                    else {"name": f"{lab} that year"}), **band))  # fmt: skip
     w = sp["window"]
     for i in (0, 1):  # window edges, where the model's differs from the default
         if w["model"][i] != w["default"][i]:
@@ -419,35 +448,54 @@ def season_panel(sp: dict) -> str:
                 fig.add_vline(x=x, line=dict(color=color, dash="dash"))
     doy_axis(fig)
     fig.update_layout(height=FIG_H + 160, legend=dict(orientation="h", y=-0.1))
-    if smooth:
-        hidden_note(fig, sp, ("trend.passage_q",))
+    shown = (("season.share", "season.passage") if gam else ()) + (
+        ("trend.passage_q",) if smooth else ()
+    )
+    hidden_note(fig, sp, shown)
     title = "Phenology, every year: share of the season's birds per day"
     if smooth:
         title += (
             f" (median {smooth[-1]['q50'] - smooth[0]['q50']:+.0f} days since {smooth[0]['year']})"
         )
+    source = (
+        "Gap-filled by the trend GAM in the model window (mean of the draws; ticks: days not "
+        "counted); beyond it, birds / c of days counted at c >= 0.5. Dots: that year's 10/50/90% "
+        "passage dates over the draws, the median with its 80% band. "
+        if gam
+        else "From the counts; blank = not counted (c < 0.5). Dots: that year's 10/50/90% passage "
+        "dates of the interpolated series (paler = more of the season uncounted). "
+    )
     return panel(fig, title + method(s),
-                 "Empirical; blank = not counted. Dots: that year's 10/50/90% passage dates "
-                 "(paler = more of the season uncounted). Lines: the smooth. Dashed: the model "
+                 source + "Lines: the smooth. Dashed: the model "
                  f"window {' - '.join(w['model'])} (blue) where it differs from the default "
                  f"{' - '.join(w['default'])} (grey); shown: {' - '.join(w['view'])}. "
-                 f"Passage beyond counting: {', '.join(w['beyond_counting']) or 'no'}.",
-                 strip=strip(sp, ("trend.passage_q",) if smooth else (), "counted share per day"))  # fmt: skip
+                 f"Passage beyond counting: {', '.join(w['beyond_counting']) or 'no'} (share of "
+                 f"the passage in the envelope's first/last days: {w.get('edge_shares')}).",
+                 strip=strip(sp, shown, "" if gam else "counted share per day"))  # fmt: skip
 
 
 def chances_panel(sp: dict) -> str:
     ch = sp["season"]["chances"]
+    gam = sp["season"].get("source") == "gam"
     fig = go.Figure()
     for i, k in enumerate((1, 10, 100, 1000)):
         if f"at_least_{k}" in ch:
             fig.add_trace(go.Scatter(x=ch["doy"], y=ch[f"at_least_{k}"], mode="lines+markers",
                                      name=f"≥ {k}", line=dict(color=COLORS[i], shape="spline")))  # fmt: skip
     doy_axis(fig)
-    fig.update_yaxes(tickformat=".0%", range=[0, 1], title="share of counted days")
+    fig.update_yaxes(tickformat=".0%", range=[0, 1], title="share of days")
     fig.update_layout(height=FIG_H)
-    return panel(fig, f"Your chances ({ch['years'][0]}–{ch['years'][1]})",
-                 "Share of well-counted days with at least N birds.",
-                 strip=strip(sp, counts="counted days"))  # fmt: skip
+    if gam:
+        hidden_note(fig, sp, ("season.chances",))
+    note = (
+        "Chance that a full day holds at least N birds, over the gap-filled days (every day of the "
+        "model window, each weighing its probability over the draws; beyond it, well-counted days)."
+        if gam
+        else "Share of well-counted days with at least N birds."
+    )
+    return panel(fig, f"Your chances ({ch['years'][0]}–{ch['years'][1]})", note,
+                 strip=strip(sp, ("season.chances",) if gam else (),
+                             "" if gam else "counted days"))  # fmt: skip
 
 
 def daytime_panel(sp: dict) -> str:
@@ -457,9 +505,10 @@ def daytime_panel(sp: dict) -> str:
     ch = d["change"]
     hist = [go.Bar(x=list(range(24)), y=d["hours"], marker_color="rgba(76,120,168,0.6)",
                    name="counted", hovertemplate="%{x}:00-%{x}:59: %{y:.1%}<extra></extra>")]  # fmt: skip
-    if d["profile"] is not None:
-        hist.append(go.Scatter(x=list(range(24)), y=d["profile"], line=dict(color="black"),
-                               name="smooth profile (main passage)"))  # fmt: skip
+    if d["expected"] is not None:
+        hist.append(go.Scatter(x=list(range(24)), y=d["expected"], line=dict(color="black"),
+                               mode="lines+markers", line_shape="spline",
+                               name="profile's prediction (same days, minutes counted)"))  # fmt: skip
     if ch["show"]:
         share = np.array([[np.nan if v is None else v for v in r] for r in d["share"]], float)
         fig = make_subplots(rows=1, cols=2, column_widths=[0.6, 0.4], horizontal_spacing=0.1,
@@ -488,8 +537,13 @@ def daytime_panel(sp: dict) -> str:
         change = f"Change not tested (timed days early/late: {ch['days'][0]}/{ch['days'][1]})."
     return panel(fig, f"Passage during the day ({d['years'][0]}–{d['years'][1]}, {d['days']} "
                       f"days timed)" + method(d),
-                 "Bars: birds per counted hour, as shares, pooled over the season. Hours are "
-                 "solar time: add about 1.6 h for summer time, 0.5 h for winter time. " + change,
+                 "Bars: birds per counted hour, as shares, pooled over the "
+                 + (f"main passage ({doy_label(d['main_doy'][0], '%d %b')} to "
+                    f"{doy_label(d['main_doy'][1], '%d %b')}, {d['main_days']} days)"
+                    if d["main_doy"] else "season")
+                 + ", hours counted at least half on each day; line: what the profile predicts "
+                 "for the same days and minutes counted. Hours are solar time: add about 1.6 h "
+                 "for summer time, 0.5 h for winter time. " + change,
                  top=75 if ch["show"] else 40,
                  strip=strip(sp, counts="by date" if ch["show"] else "one histogram"))  # fmt: skip
 
@@ -562,9 +616,160 @@ def records_panel(sp: dict) -> str:
             f"<th>what was written that day</th></tr>{rows}</table></div>")  # fmt: skip
 
 
+# --- inputs: counts, effort, time of day ------------------------------------------------------
+
+
+def effort_panel(sp: dict, effort_annual: list) -> str:
+    """Per year: the taxon's birds in the default window, the days counted (all taxa), the mean
+    coverage of its counted days and the ratio index (birds per full-day equivalent)."""
+    a = sp["annual"]
+    year = [r["year"] for r in a]
+    start = sp["settings"]["start_year"]["value"]
+    eff = {r["year"]: r for r in effort_annual}
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.45, 0.3, 0.25],
+                        vertical_spacing=0.04)  # fmt: skip
+    fig.add_trace(go.Bar(x=year, y=[r["window"] for r in a], name="birds counted (window)",
+                         marker_color=["rgba(214,39,40,0.45)" if y >= start else "#bbb"
+                                       for y in year]), 1, 1)  # fmt: skip
+    fig.add_trace(go.Scatter(x=year, y=[r["index"] for r in a], mode="markers",
+                             name="ratio index (birds / Σc)", marker=dict(color="black", size=5)),
+                  2, 1)  # fmt: skip
+    fig.add_trace(go.Scatter(x=year, y=[r["c_mean"] for r in a], mode="lines+markers",
+                             name="mean coverage of counted days", line=dict(color=COLORS[0])),
+                  3, 1)  # fmt: skip
+    fig.add_trace(go.Bar(x=year, y=[eff.get(y, {}).get("window_days") for y in year],
+                         name="days counted (window, all taxa)", marker_color="#ccc", opacity=0.5,
+                         xaxis="x3", yaxis="y4"))  # fmt: skip
+    fig.add_hline(y=0.5, line=dict(color="#b71c1c", dash="dot", width=1), row=3, col=1)
+    for y, lab in PROTOCOL.items():
+        fig.add_vline(x=y - 0.5, line=dict(color="#aaa", dash="dot", width=1))
+    fig.add_vline(x=start - 0.5, line=dict(color="#b71c1c", width=1.5))
+    fig.update_layout(height=FIG_H + 160, barmode="overlay",
+                      legend=dict(orientation="h", y=-0.08),
+                      yaxis4=dict(overlaying="y3", anchor="x3", side="right", showgrid=False,
+                                  title="days"))  # fmt: skip
+    fig.update_yaxes(title="birds", row=1, col=1)
+    fig.update_yaxes(title="birds / day eq.", row=2, col=1)
+    fig.update_yaxes(title="mean c", range=[0, 1.05], row=3, col=1)
+    return panel(fig, "Counts and effort per year",
+                 f"Raw, no model. Red line: start year {start} (grey bars before it are not "
+                 "compared). Ratio index: Σ birds / Σ c over counted days (none below c = 0.5). "
+                 "Dotted: protocol changes " + ", ".join(f"{y} {t}" for y, t in PROTOCOL.items())
+                 + ".")  # fmt: skip
+
+
+def profile_panel(sp: dict) -> str:
+    """The time-of-day profile p(h | doy) the coverage is computed with."""
+    pr = sp["profile"]
+    z = np.array(pr["p"], float).T
+    fig = go.Figure(go.Heatmap(x=pr["doy"], y=list(range(24)), z=z, colorscale="Blues",
+                               colorbar=dict(title="p(h)", tickformat=".0%"),
+                               customdata=[[doy_label(d, "%d-%b") for d in pr["doy"]]] * 24,
+                               hovertemplate="%{customdata}, %{y}:00 solar: %{z:.1%}"
+                                             "<extra></extra>"))  # fmt: skip
+    doy_axis(fig)
+    fig.update_yaxes(title="solar hour (12 = solar noon)", range=[3.5, 20.5])
+    fig.update_layout(height=FIG_H)
+    source = {"own": "its own", "uniform": "uniform over daylight"}.get(pr["source"],
+                                                                         f"group: {pr['source']}")  # fmt: skip
+    return panel(fig, f"Time-of-day profile ({source})",
+                 "The share of a full day's passage in each solar hour, by date: a counted day's "
+                 "coverage c is its sum over the hours counted. Fitted by the time-of-day GAM on "
+                 "the days timed to the hour; a group's when the taxon has too few timed birds.")  # fmt: skip
+
+
+# --- model components -------------------------------------------------------------------------
+
+
+def components_panel(sp: dict) -> str:
+    """The fitted season in the first and last year, and each year's expectation with and without
+    its episodes over the counted birds per full day (one year at a time)."""
+    t = sp["trend"]
+    s, e = t["season"], t["episodes"]
+    fig = make_subplots(rows=1, cols=2, column_widths=[0.35, 0.65], horizontal_spacing=0.08,
+                        subplot_titles=("season: first and last year (share per day)",
+                                        "one year: expected, with and without episodes"))  # fmt: skip
+    for i, y in enumerate(k for k in s if k != "doy"):
+        v = arr(s[y])
+        fig.add_trace(go.Scatter(x=s["doy"], y=v / np.nansum(v), name=y, mode="lines",
+                                 line=dict(color=COLORS[i], dash="dot" if i == 0 else "solid")),
+                      1, 1)  # fmt: skip
+    d = sp["days"]
+    dates = np.array(d["date"], dtype="datetime64[D]")
+    yr = dates.astype("datetime64[Y]").astype(int) + 1970
+    # day of year in a non-leap year, as the trend's season days
+    doy = (dates - dates.astype("datetime64[Y]")).astype(int) + 1
+    leap = (yr % 4 == 0) & ((yr % 100 != 0) | (yr % 400 == 0))
+    doy = np.where(leap & (doy > 59), doy - 1, doy)
+    adj = arr(d["adjusted"])
+    fd = t["days"]
+    f_dates = np.array(fd["date"], dtype="datetime64[D]")
+    f_yr = f_dates.astype("datetime64[Y]").astype(int) + 1970
+    f_doy = (f_dates - f_dates.astype("datetime64[Y]")).astype(int) + 1
+    f_leap = (f_yr % 4 == 0) & ((f_yr % 100 != 0) | (f_yr % 400 == 0))
+    f_doy = np.where(f_leap & (f_doy > 59), f_doy - 1, f_doy)
+    f_tot, f_lo, f_hi, f_c = arr(fd["total"]), arr(fd["q10"]), arr(fd["q90"]), arr(fd["c"])
+    years = sorted(e["base"], key=int)
+    first = len(fig.data)
+    for y in years:
+        m = (yr == int(y)) & np.isfinite(adj)
+        vis = y == years[-1]
+        k = f_yr == int(y)
+        fig.add_trace(go.Scatter(x=f_doy[k], y=f_tot[k], mode="markers", visible=vis,
+                                 **legend(sp, "trend.days.total", "filled day (mean, 80%)"),
+                                 error_y=dict(type="data", symmetric=False,
+                                              array=np.clip(f_hi[k] - f_tot[k], 0, None),
+                                              arrayminus=np.clip(f_tot[k] - f_lo[k], 0, None),
+                                              color="#4a90d9", thickness=1, width=0),
+                                 marker=dict(color="#4a90d9", size=4, symbol="diamond"),
+                                 customdata=f_c[k],
+                                 hovertemplate="filled %{y:.0f} (c = %{customdata:.2f})"
+                                               "<extra></extra>"), 1, 2)  # fmt: skip
+        fig.add_trace(go.Scatter(x=doy[m], y=adj[m], mode="markers", visible=vis,
+                                 name="counted / c", marker=dict(color="#555", size=5)), 1, 2)  # fmt: skip
+        fig.add_trace(go.Scatter(x=e["doy"], y=e["base"][y], mode="lines", visible=vis,
+                                 name="without episodes",
+                                 line=dict(color="#555", dash="dash")), 1, 2)  # fmt: skip
+        with_ep = arr(e["base"][y]) * np.exp(arr(e["episode"][y]))  # `episode` is on the log scale
+        fig.add_trace(go.Scatter(x=e["doy"], y=with_ep, mode="lines", visible=vis,
+                                 name="with episodes", line=dict(color="#e66c00")), 1, 2)  # fmt: skip
+    n = len(fig.data)
+    buttons = []
+    for k, y in enumerate(years):
+        vis = [True] * first + [first + 4 * k <= j < first + 4 * k + 4 for j in range(first, n)]
+        buttons.append(dict(label=y, method="update", args=[{"visible": vis}]))
+    fig.update_layout(height=FIG_H + 20, legend=dict(orientation="h", y=-0.15),
+                      updatemenus=[dict(buttons=buttons, active=len(years) - 1, x=1, y=1.18,
+                                        xanchor="right")])  # fmt: skip
+    doy_axis(fig, 1, 1)
+    doy_axis(fig, 1, 2)
+    fig.update_yaxes(tickformat=".1%", row=1, col=1)
+    fig.update_yaxes(title="birds per full day", row=1, col=2)
+    return panel(fig, f"Model components (θ = {t['theta']:.2f}, κ = {t['kappa']:.1f})",
+                 "Left: the smooth season (with its change of timing) of the first and last "
+                 "year, each summing to 1. Right: a year's expected birds per full day without "
+                 "(trend, year level, season, shift) and with its weather episodes, over the "
+                 "counted birds / c (days with c ≥ 0.5) and each counted day's gap-filled total "
+                 "(blue, any c: the count plus the hours not counted, drawn from the model). θ: "
+                 "day-to-day over-dispersion; κ: hour-to-hour (flocks).", top=75,
+                 strip=strip(sp, ["trend.days.total"], counts="counted / c"))  # fmt: skip
+
+
 # --- pages ------------------------------------------------------------------------------------
 
 
+# The page follows the pipeline: what defileViz does with it, then inputs, model, validation and
+# the blocks derived from them.
+PAGE_SECTIONS = {
+    "display": "On defileViz",
+    "config": "1 Configuration",
+    "counts": "2 Counts and effort",
+    "daytime": "3 Time of day",
+    "season": "4 Season day by day",
+    "trend": "5 Trend model",
+    "validation": "6 Validation",
+    "derived": "7 Derived blocks",
+}
 SECTION_NAMES = {
     "passage": "Passage at the Défilé",
     "evolution": "Changes in passage",
@@ -608,23 +813,26 @@ def page(tx: dict, sp: dict, effort_annual: list) -> str:
     )
     diag = sp["diagnostics"]
     flags = "".join(f"<span class='flag'>{f}</span>" for f in diag["flags"]) or "none"
+    no_trend = "<p class='note'>No trend.</p>"
+    toc = " · ".join(f"<a href='#{k}'>{v}</a>" for k, v in PAGE_SECTIONS.items())
     body = f"""
 <h2>{html.escape(tx['english_name'])} <small style="font-weight:normal;color:#777">
 <i>{html.escape(str(tx['scientific_name']))}</i> · {html.escape(str(tx['french_name']))} ·
 tier {tx['tier']} · from {tx['start_year']}</small></h2>
 <div>{links}</div>
-<h3>On defileViz</h3>{display_panel(sp, tx)}
-<h3>Key numbers</h3>{key_numbers(sp)}
-<h3>Diagnostics</h3><div class="panel">flags: {flags}<br><span class="note">
+<div class="toc">{toc}</div>
+<h3 id="display">On defileViz</h3>{display_panel(sp, tx)}
+<h3 id="config">1. Configuration</h3><div class="panel">flags: {flags}<br><span class="note">
 {html.escape(json.dumps({k: v for k, v in diag.items() if k != 'flags'}))}</span>
 <table><tr><th>setting</th><th>value</th><th>source</th><th>reason</th></tr>{settings}</table></div>
-<h3>Accounts</h3>{accounts_panel(sp)}
-<h3>Trend</h3>{trend_panel(sp, effort_annual) if sp['trend'] else "<p class='note'>No trend.</p>"}
-<h3>Reliability</h3>{reliability_panel(sp) or "<p class='note'>No trend.</p>"}{benchmark_panel(sp) if sp['trend'] else ""}
-<h3>Phenology</h3>{season_panel(sp)}
-<h3>Visiting</h3>{chances_panel(sp)}{daytime_panel(sp)}
-<h3>Age and sex</h3>{demography_panel(sp, "age") + demography_panel(sp, "sex") or "<p class='note'>Not enough birds aged or sexed.</p>"}
-<h3>Records</h3>{records_panel(sp)}"""
+<h3 id="counts">2. Counts and effort</h3>{effort_panel(sp, effort_annual)}
+<h3 id="daytime">3. Time of day and coverage</h3>{profile_panel(sp)}{daytime_panel(sp)}
+<h3 id="season">4. Season day by day</h3>{season_panel(sp)}{chances_panel(sp)}
+<h3 id="trend">5. Trend model</h3>{trend_panel(sp, effort_annual) + components_panel(sp) if sp['trend'] else no_trend}
+<h3 id="validation">6. Validation</h3>{reliability_panel(sp) + benchmark_panel(sp) if sp['trend'] else no_trend}
+<h3 id="derived">7. Derived blocks</h3>{key_numbers(sp)}
+{demography_panel(sp, "age") + demography_panel(sp, "sex") or "<p class='note'>Age and sex: not enough birds aged or sexed.</p>"}
+{records_panel(sp)}{accounts_panel(sp)}"""
     return wrap(tx["english_name"], f"<section>{body}</section>")
 
 
@@ -634,7 +842,8 @@ def wrap(title: str, body: str) -> str:
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)}</title>
 <style>{CSS}</style>
 <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@{js}/plotly.min.js"></script>
-</head><body><nav><a href="index.html">Explore QA</a> {html.escape(title)}</nav>{body}</body></html>"""
+</head><body><nav><a href="index.html">Explore QA</a><a href="compare.html">Species compared</a>
+{html.escape(title)}</nav>{body}</body></html>"""
 
 
 def gap_error(sp: dict) -> str:
@@ -653,7 +862,9 @@ def index(taxa: list, species: dict) -> str:
     rows.sort(key=lambda r: (-(r[1]["tier"] == "full"), -r[0], r[1]["english_name"]))
     cells = "".join(
         f"<tr><td><a href='{tx['taxon_id']}.html'>{html.escape(tx['english_name'])}</a></td>"
-        f"<td>{tx['tier']}</td><td>{tx['start_year']}</td><td class='n'>{tx['birds'] or 0:,.0f}</td>"
+        f"<td>{tx['tier']}</td><td>{tx.get('group', '')}{' ★' if tx.get('highlight') else ''}</td>"
+        f"<td>{tx.get('story') or ''}</td>"
+        f"<td>{tx['start_year']}</td><td class='n'>{tx['birds'] or 0:,.0f}</td>"
         f"<td>{d['profile']}</td>"
         f"<td class='n'>{'' if d['coverage_recent'] is None else format(d['coverage_recent'], '.2f')}</td>"
         f"<td class='n'>{d.get('interval_ratio', '') and format(d.get('interval_ratio'), '.2f')}</td>"
@@ -669,7 +880,7 @@ def index(taxa: list, species: dict) -> str:
         f"<td>{''.join(f'<span class=flag>{f}</span>' for f in d['flags'])}</td></tr>"
         for _, tx, d, k, sp in rows
     )
-    head = ("<tr><th>taxon</th><th>tier</th><th>from</th><th>birds</th><th>profile</th>"
+    head = ("<tr><th>taxon</th><th>tier</th><th>group (★ highlight)</th><th>story</th><th>from</th><th>birds</th><th>profile</th>"
             "<th>coverage</th><th>q90/q10</th><th>timed days</th><th>age yrs</th><th>trend</th>"
             "<th>totals</th><th>trend</th><th>season</th><th>gap error</th><th>flags</th></tr>")  # fmt: skip
     return wrap("index", f"<section><h2>Explore QA ({len(rows)} taxa)</h2><div class='panel'>"
@@ -699,7 +910,10 @@ def main(argv=None) -> int:
             f.write(page(tx, species[tx["taxon_id"]], effort_annual))
     with open(os.path.join(args.out, "index.html"), "w", encoding="utf-8") as f:
         f.write(index(taxa, species))
-    print(f"{len(pages)} pages and the index -> {args.out}")
+    from species_compare import write  # imports this module: here, not at the top
+
+    write(args.export, args.out, set(species))
+    print(f"{len(pages)} pages, the index and the comparison -> {args.out}")
     return 0
 
 

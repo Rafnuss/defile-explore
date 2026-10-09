@@ -63,6 +63,7 @@ def main(argv=None) -> int:
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     fig, axes = plt.subplots(len(SPECIES), 3, figsize=(16, 3.2 * len(SPECIES)))
     summary = []
+    t = (np.arange(E.SLOTS) + 0.5) / E.STEPS_PER_HOUR  # solar hour; profile as a share per hour
     for row, name in zip(axes, SPECIES):
         tid = ids[name]
         d, h = days[days["taxon_id"] == tid], hourly[hourly["taxon_id"] == tid]
@@ -71,8 +72,8 @@ def main(argv=None) -> int:
         # profile at three dates
         for md, color in zip(PROFILE_DATES, ("C0", "C1", "C2")):
             i = pd.Timestamp(f"2025-{md}").dayofyear - P.PROFILE_DOY[0]
-            row[0].plot(np.arange(24), p[i], color=color, label=md)
-            row[0].plot(np.arange(24), profiles["uniform"][i], color=color, ls=":", lw=0.8)
+            row[0].plot(t, p[i] * E.STEPS_PER_HOUR, color=color, label=md)
+            row[0].plot(t, profiles["uniform"][i] * E.STEPS_PER_HOUR, color=color, ls=":", lw=0.8)
         row[0].set(title=f"{name}: profile ({source[tid]}), dotted uniform", xlim=(4, 22))
         row[0].legend(fontsize=7)
 
@@ -85,7 +86,7 @@ def main(argv=None) -> int:
             pp = P.fit_profile(samples, doy_grid, light, label=f"{name} {y0}-{y1}")
             stab.append(pp)
             i = pd.Timestamp(f"2025-{PROFILE_DATES[1]}").dayofyear - P.PROFILE_DOY[0]
-            row[1].plot(np.arange(24), pp[i], ls=ls, color="k", label=f"{y0}-{y1}")
+            row[1].plot(t, pp[i] * E.STEPS_PER_HOUR, ls=ls, color="k", label=f"{y0}-{y1}")
         tv = 0.5 * np.abs(stab[0] - stab[1]).sum(axis=1)  # total variation per day
         row[1].set(
             title=f"{PROFILE_DATES[1]}; TV distance median {np.median(tv):.2f}", xlim=(4, 22)

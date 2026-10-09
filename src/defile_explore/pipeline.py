@@ -93,7 +93,7 @@ def load_shared(data_dir: str, ebird: pd.DataFrame, use_cache: bool = True) -> S
     effort = E.build_effort(surveys)
     days = E.daily_counts(counts)
     hourly = E.hourly_counts(counts)
-    taxonomy, days, hourly = E.add_combined(taxonomy, days, hourly)
+    taxonomy, days, hourly = E.add_rollups(taxonomy, days, hourly)
     taxa = E.build_taxa(taxonomy, days, ebird)
     profiles, source = P.build_profiles(taxa, days, hourly, effort)
     taxa["profile"] = taxa["taxon_id"].map(source)
@@ -224,9 +224,12 @@ def trend_block(job: dict, start: int, window: tuple[int, int]) -> dict:
             "passage_q": E.records(t["passage_q"]),
             "season": t["season"],
             "episodes": t["episodes"],
+            "days": E.columns(t["days"]),
+            "season_fill": t["season_fill"],  # for the season block, popped before export
         }
 
-    return cached(job, "trend", trend_key(job, start, window), compute)
+    # `taxon_trend` summarises its draws for the season block with `season`'s code
+    return cached(job, "trend", trend_key(job, start, window, S), compute)
 
 
 def benchmark_block(job: dict, start: int, window: tuple[int, int]) -> dict:
@@ -249,18 +252,24 @@ def benchmark_block(job: dict, start: int, window: tuple[int, int]) -> dict:
 # --- derived blocks ---------------------------------------------------------------------------
 
 
-def records_block(days: pd.DataFrame, remarks: pd.DataFrame) -> dict:
+def records_block(days: pd.DataFrame, remarks: pd.DataFrame, effort: pd.DataFrame) -> dict:
     """The `RECORD_DAYS` days with the most birds, all years, with what was written about each
-    (`remarks.notes_of`)."""
+    (`remarks.notes_of`) and, for a day counted on Trektellen, the link to its count there."""
     top = days.dropna(subset=["count"]).nlargest(RECORD_DAYS, "count")[["date", "count"]]
     top["notes"] = [M.notes_of(remarks, d) for d in top["date"]]
+    on_trektellen = set(effort.loc[effort["era"] == R.TREKTELLEN_ERA, "date"])
+    template = X.LINK_TEMPLATES["trektellen_day"]
+    top["trektellen"] = [
+        template.format(date=d.strftime("%Y%m%d")) if d in on_trektellen else None
+        for d in top["date"]
+    ]
     return {"method": "records@2", "top_days": top}
 
 
 def best_hours(profile: np.ndarray, doy: float) -> dict:
     """The fewest solar hours holding `BEST_HOURS_SHARE` of the profile on day `doy`, as a range
     from the first to the last of them."""
-    p = profile[int(np.clip(round(doy), *P.PROFILE_DOY)) - P.PROFILE_DOY[0]]
+    p = E.by_hour(profile[int(np.clip(round(doy), *P.PROFILE_DOY)) - P.PROFILE_DOY[0]])
     order = np.argsort(p)[::-1]
     top = order[: np.searchsorted(np.cumsum(p[order]), BEST_HOURS_SHARE) + 1]
     return {"from": int(top.min()), "to": int(top.max()) + 1, "share": float(p[top].sum())}
@@ -338,6 +347,11 @@ def window_block(rule: dict, settings: dict) -> dict:
         "default": W.as_dates(W.default_window()),
         "model_envelope": W.as_dates(rule["model_envelope"]),
         "view_envelope": W.as_dates(rule["view_envelope"]),
+        "edge_shares": (
+            {k: round(e, 3) for k, e in zip(("early", "late"), rule["edge_shares"])}
+            if rule["edge_shares"]
+            else None
+        ),
         "beyond_counting": rule["beyond_counting"],
     }
 
@@ -395,28 +409,35 @@ def build_taxon(job: dict) -> tuple[str, dict]:
     window = window_block(rule, settings)
     trend = trend_block(job, start, model_w) if settings["trend"].value else None
     bench = benchmark_block(job, start, model_w) if trend and job["benchmark"] else None
+    fill = trend.pop("season_fill") if trend else None
+    reliability = Q.reliability_block(trend, bench, window, job["profile_source"])
     frame = season_frame[season_frame["doy"].between(*view_w)]
-    season = S.season_block(frame, last, model_w)
+    season = S.season_block(frame, last, model_w, fill if Q.fills_season(reliability) else None)
     daytime = Y.daytime_block(
         days, job["hourly"], effort, profile, daytime_parts(trend, season, last)
     )
     age = G.age_block(job["demography"], counted, settings["age_years"].value)
     sex = G.sex_block(job["demography"], counted, settings["sex_years"].value)
-    records = records_block(d, job["remarks"])
+    records = records_block(d, job["remarks"], effort)
+    kn = key_numbers(job, frame, trend, season, records)
     return taxon_id, {
         "taxon_id": taxon_id,
         "settings": {k: v.as_dict() for k, v in settings.items()},
         "window": window,
         "links": links,
-        "key_numbers": key_numbers(job, frame, trend, season, records),
+        "key_numbers": kn,
         "days": E.columns(d),
         "hourly": E.columns(job["hourly"]),
         "annual": E.records(annual),
-        "profile": {"source": job["profile_source"], **P.profile_table(profile)},
+        "profile": {
+            "source": job["profile_source"],
+            **P.profile_table(profile),
+            "day": P.profile_day(profile, kn["passage"]["q50"]),
+        },
         "accounts": A.accounts_block(job["accounts"], last),
         "trend": trend,
         "benchmark": bench,
-        "reliability": Q.reliability_block(trend, bench, window, job["profile_source"]),
+        "reliability": reliability,
         "season": season,
         "daytime": daytime,
         "age": age,

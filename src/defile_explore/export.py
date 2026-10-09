@@ -13,17 +13,16 @@ Files, written by `scripts/build_explore.py` (one `build_*` function each):
 - `manifest.json`: when and from which dataset build it was made, the date range, partial years,
   the default window and the tier thresholds.
 - `taxa.json`: one entry per taxon, with names (French from the eBird taxonomy), rank,
-  occurrence tier, totals, and `start_year`, the first year its counts are comparable from. Combined
-  series (`COMBINED`: all Columba pigeons, all swallows and martins) are taxa too, with rank
-  `combined` and their `members`, and a `species/` file of their own.
-- `effort.json`: one entry per local day with any survey: counted hours (union of `complete`
-  survey intervals), first/last counted time, hours counted per solar hour, and the hours of
-  `partial`, `unknown` and `none` (not counted) surveys.
+  occurrence tier, totals, and `start_year`, the first year its counts are comparable from. A group
+  taxon ("harrier sp.") is read as everything below it (`add_rollups`), with its `members`.
+- `effort.json`: one entry per local day with any survey: hours counted (union of complete
+  surveys, `survey_complete`, weather stops apart), first/last time, hours covered per solar hour
+  (weather stops included: no bird passed), and the hours of weather stops and incomplete surveys.
 - `species/<taxon_id>.json`: per day, the main-direction count with its qualifiers, the reverse
   and local counts, the share of birds timed to the hour, the day's coverage `c` and the
   effort-adjusted count; per solar hour, the birds timed to it; per year, totals and the
   effort-adjusted index; the time-of-day profile used; and for
-  full-tier species and combined series, `trend` (`defile_explore.trend.taxon_trend`): gap-filled
+  full-tier taxa with a trend, `trend` (`defile_explore.trend.taxon_trend`): gap-filled
   annual totals with intervals, the smooth trend, the median passage date per year, the smooth
   season in the first and last year, and each year's season with and without its weather episodes.
   `defile_explore.pipeline.build_taxon` adds the blocks derived from the same data and fit
@@ -96,32 +95,21 @@ TARGET_FAMILIES = {"Corvidae"}
 START_MIN_SHARE = 0.75
 START_MIN_YEAR_BIRDS = 0.02
 
-# Combined series: taxa whose split between names changed over the years, so a member's series
-# shifts while the sum does not. Wood Pigeon has a "Columba sp." beside it only from 2014 (a
-# quarter of the pigeons since); swallows were "swallow sp." in 1993-1999, and are increasingly
-# identified since 2021. Each is exported like a taxon (`add_combined`), with its `members`, and
-# gets a start year by the same rule. Feral and Rock Pigeons are local birds, not included.
-COMBINED = {
-    "combined-columba": {
-        "english_name": "All pigeons (Columba)",
-        "french_name": "Tous les pigeons (Columba)",
-        "scientific_name": "Columba",
-        "members": ["Columba palumbus", "Columba oenas", "Columba sp."],
-    },
-    "combined-hirundinidae": {
-        "english_name": "All swallows and martins",
-        "french_name": "Toutes les hirondelles",
-        "scientific_name": "Hirundinidae",
-        "members": [
-            "Hirundo rustica",
-            "Delichon urbicum",
-            "Riparia riparia",
-            "Ptyonoprogne rupestris",
-            "Hirundinidae sp.",
-        ],
-    },
-}
-COMBINED_RANK = "combined"
+# Roll-up series: a group taxon ("harrier sp.", "Red/Black Kite", "swallow sp.") is read as all the
+# birds counted under it: its own count plus those of every taxon below it in the release's
+# `parent_taxon_id` tree (defile-dataset `taxonomy/parent_taxa.csv`). This makes a group's series
+# independent of how far the birds were identified (swallows were "swallow sp." in 1993-1999 and
+# are increasingly identified since 2021; "Columba sp." appears only from 2014). Each is exported
+# like a taxon (`add_rollups`), with its `members`, and gets a start year by the same rule. A group
+# adds nothing to read when it is alone (fewer than `ROLLUP_MIN_BELOW` taxa below it: "Short-eared
+# Owl" is all "Asio sp." can be) or when one taxon is more than `ROLLUP_MAX_SHARE` of its birds
+# (the group is that taxon), or when it is too large to say anything (more than `ROLLUP_MAX_BELOW`
+# taxa below it: "bird sp.", "passerine sp."): it is `EXCLUDED_TIER`, with no page, and keeps its
+# own series. A species is always its own birds plus those of its subspecies, whatever their share.
+ROLLUP_MIN_BELOW = 2
+ROLLUP_MAX_BELOW = 100
+ROLLUP_MAX_SHARE = 0.9
+EXCLUDED_TIER = "excluded"
 
 # French names: the eBird taxonomy in French (France), joined on `ebird_code`; no API key needed.
 # Downloaded once into the data dir by `scripts/build_explore.py` (`--refresh-names` to update).
@@ -133,9 +121,12 @@ FRENCH_NAME_OVERRIDES = {"avibase-81B32602": "Corneille mantelée"}  # hoocro4, 
 # A count is "timed" when it has its own time, or inherits a survey at most this long.
 TIMED_MAX_DURATION = pd.Timedelta(hours=1)
 
-COVERAGE_STATES = ("complete", "partial", "unknown", "none")
 
 HOURS = 24
+# A solar hour is cut into this many slots: survey edges, dawn and dusk fall within a slot, and the
+# time-of-day profile is read at this resolution, so coverage integrates it over the minutes counted.
+STEPS_PER_HOUR = 12  # 5-minute slots
+SLOTS = HOURS * STEPS_PER_HOUR
 DECIMALS = 3  # hours and fractions
 
 
@@ -193,35 +184,56 @@ def merge_intervals(start: np.ndarray, end: np.ndarray) -> list[tuple]:
     return out
 
 
-def hours_per_solar_hour(intervals: list[tuple], shift: float) -> np.ndarray:
-    """Hours covered in each of the 24 solar hours of a day by (start, end) intervals in local
+def hours_per_slot(intervals: list[tuple], shift: float) -> np.ndarray:
+    """Hours covered in each of the `SLOTS` solar slots of a day by (start, end) intervals in local
     clock time within that day, `shift` the day's `solar_shift`; what falls outside the solar day
     (at night) is left out."""
-    cover = np.zeros(HOURS)
+    cover = np.zeros(SLOTS)
     for s, e in intervals:
         day = s.normalize()
-        a = (s - day) / pd.Timedelta(hours=1) - shift
-        b = (e - day) / pd.Timedelta(hours=1) - shift
-        for h in range(max(int(np.floor(a)), 0), min(int(np.ceil(b)), HOURS)):
-            cover[h] += max(0.0, min(b, h + 1) - max(a, h))
-    return cover
+        a = ((s - day) / pd.Timedelta(hours=1) - shift) * STEPS_PER_HOUR
+        b = ((e - day) / pd.Timedelta(hours=1) - shift) * STEPS_PER_HOUR
+        for k in range(max(int(np.floor(a)), 0), min(int(np.ceil(b)), SLOTS)):
+            cover[k] += max(0.0, min(b, k + 1) - max(a, k))
+    return cover / STEPS_PER_HOUR
+
+
+def by_hour(x: np.ndarray) -> np.ndarray:
+    """Slots (last axis, `SLOTS`) summed into the 24 solar hours."""
+    return x.reshape(*x.shape[:-1], HOURS, STEPS_PER_HOUR).sum(axis=-1)
 
 
 # --- effort -----------------------------------------------------------------
 
 
+def _flag(values: pd.Series, default: bool) -> pd.Series:
+    """A release boolean column (`true`/`false`, blank: `default`) as bool."""
+    return values.map(
+        lambda v: default if pd.isna(v) or v == "" else str(v).strip().lower() == "true"
+    )
+
+
+def _hours(day: pd.DataFrame) -> float:
+    union = merge_intervals(day["start"].tolist(), day["end"].tolist())
+    return sum((e - b) / pd.Timedelta(hours=1) for b, e in union)
+
+
 def build_effort(surveys: pd.DataFrame) -> pd.DataFrame:
     """One row per local day with any survey.
 
-    `hours` is the union of `complete` survey intervals (never a sum of nested or overlapping
-    ones); `first`/`last` its local bounds (clock time); `periods` the number of complete surveys;
-    `hourly` the hours counted in each solar hour; `partial_hours`, `unknown_hours`, `none_hours`
-    the other surveys' hours. `state`: `counted` (some complete hours), else `uncertain` (only
-    partial or unknown), else `not_counted` (only `none`: rain, closures).
+    A survey with `survey_complete` holds every bird that passed, weather stops included (counting
+    impossible, no bird: `weather_stop`). `slots` is the share of each solar slot covered by the
+    union of complete surveys (`STEPS_PER_HOUR`), weather stops included, so their zeros count;
+    `hourly` the same per solar hour; `first`/`last` its local bounds (clock time); `periods` the
+    number of complete surveys. `hours` is the union of complete surveys without the weather stops
+    (hours actually counted), `weather_hours` and `incomplete_hours` the others'. `state`:
+    `counted` (some complete survey), else `uncertain` (only incomplete ones).
     """
     s = surveys.assign(lstart=to_local(surveys["start"]), lend=to_local(surveys["end"]))
+    s["complete"] = _flag(s.get("survey_complete", pd.Series(index=s.index, dtype=object)), True)
+    s["weather"] = _flag(s.get("weather_stop", pd.Series(index=s.index, dtype=object)), False)
     pieces = split_at_midnight(s["lstart"], s["lend"])
-    pieces = pieces.join(s[["survey_coverage", "recording_era"]])
+    pieces = pieces.join(s[["complete", "weather", "recording_era"]])
     pieces["date"] = pieces["start"].dt.normalize()
     shift = solar_shift(pd.Series(pieces["date"].unique()))
     shift = dict(zip(pieces["date"].unique(), shift))
@@ -229,44 +241,42 @@ def build_effort(surveys: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for date, day in pieces.groupby("date"):
         row = {"date": date}
-        complete = day[day["survey_coverage"] == "complete"]
+        complete = day[day["complete"]]
         union = merge_intervals(complete["start"].tolist(), complete["end"].tolist())
-        hourly = hours_per_solar_hour(union, shift[date])
-        row["hours"] = sum((e - b) / pd.Timedelta(hours=1) for b, e in union)
+        slots = hours_per_slot(union, shift[date])
+        row["hours"] = _hours(complete[~complete["weather"]])
+        row["weather_hours"] = _hours(complete[complete["weather"]])
+        row["incomplete_hours"] = _hours(day[~day["complete"]])
         row["first"] = union[0][0] if union else None
         row["last"] = union[-1][1] if union else None
         row["periods"] = len(complete)
-        row["hourly"] = hourly
-        for state in COVERAGE_STATES[1:]:
-            part = day[day["survey_coverage"] == state]
-            union_s = merge_intervals(part["start"].tolist(), part["end"].tolist())
-            row[f"{state}_hours"] = sum((e - b) / pd.Timedelta(hours=1) for b, e in union_s)
+        row["slots"] = slots * STEPS_PER_HOUR
+        row["hourly"] = by_hour(slots)
         eras = day.loc[day["recording_era"] != "curated", "recording_era"]
         row["era"] = eras.mode().iloc[0] if len(eras) else "curated"
         rows.append(row)
     e = pd.DataFrame(rows)
-    e["state"] = np.select(
-        [e["hours"] > 0, (e["partial_hours"] + e["unknown_hours"]) > 0],
-        ["counted", "uncertain"],
-        "not_counted",
-    )
+    e["state"] = np.where(e["periods"] > 0, "counted", "uncertain")
     return e
 
 
 def annual_effort(effort: pd.DataFrame) -> pd.DataFrame:
-    """Per year: days by `state`, counted hours, and the same in the default window."""
+    """Per year: days by `state`, counted hours, and the same in the default window.
+
+    `weather_days`: days wholly stopped by weather (counted, no bird), within `days`.
+    """
     e = effort.assign(year=effort["date"].dt.year, win=in_window(effort["date"]))
     counted = e["state"] == "counted"
     return (
         e.assign(
             days=counted,
             uncertain_days=e["state"] == "uncertain",
-            not_counted_days=e["state"] == "not_counted",
+            weather_days=(e["weather_hours"] > 0) & (e["hours"] == 0),
             window_days=counted & e["win"],
             window_hours=e["hours"].where(e["win"], 0),
         )
         .groupby("year")[
-            ["days", "hours", "window_days", "window_hours", "uncertain_days", "not_counted_days"]
+            ["days", "hours", "window_days", "window_hours", "uncertain_days", "weather_days"]
         ]
         .sum()
         .reset_index()
@@ -407,7 +417,7 @@ def french_names(taxonomy: pd.DataFrame, ebird: pd.DataFrame) -> pd.Series:
     """French name of each taxon (eBird `COMMON_NAME` by `ebird_code`), first letter capitalised
     ("labbe sp." -> "Labbe sp."), with `FRENCH_NAME_OVERRIDES`."""
     names = taxonomy["ebird_code"].map(ebird.set_index("SPECIES_CODE")["COMMON_NAME"])
-    overrides = FRENCH_NAME_OVERRIDES | {k: v["french_name"] for k, v in COMBINED.items()}
+    overrides = FRENCH_NAME_OVERRIDES
     names = names.fillna(taxonomy["taxon_id"].map(overrides))
     return names.str[:1].str.upper() + names.str[1:]
 
@@ -426,10 +436,14 @@ def build_taxa(
         birds=("count", "sum"),
     )
     cols = ["taxon_id", "english_name", "scientific_name", "taxon_rank", "order", "family"]
-    t = taxonomy[cols + (["members"] if "members" in taxonomy else [])].join(occ, on="taxon_id")
+    extra = [c for c in ("members", "rollup_excluded") if c in taxonomy]
+    t = taxonomy[cols + extra].join(occ, on="taxon_id")
     if ebird is not None:
         t.insert(1, "french_name", french_names(taxonomy, ebird))
     t["tier"] = [tier_of(y, n) if pd.notna(n) else "rare" for y, n in zip(t["years"], t["days"])]
+    if "rollup_excluded" in t:
+        t.loc[t["rollup_excluded"].fillna(False).astype(bool), "tier"] = EXCLUDED_TIER
+        t = t.drop(columns="rollup_excluded")
     per_year = d.groupby(["taxon_id", d["date"].dt.year])["count"].sum()
     recorded = {i: g.droplevel(0).to_dict() for i, g in per_year.groupby(level=0)}
     last = int(days["date"].max().year)
@@ -440,50 +454,78 @@ def build_taxa(
     return t.sort_values(["order", "family", "scientific_name"], na_position="last")
 
 
-def add_combined(
+def descendants(parents: pd.Series) -> dict[str, list[str]]:
+    """`{taxon_id: every taxon below it}` from `parents` (`parent_taxon_id` by `taxon_id`), for the
+    taxa that have any."""
+    children: dict[str, list[str]] = {}
+    for child, parent in parents.dropna().items():
+        children.setdefault(parent, []).append(child)
+    out = {}
+    for taxon_id in children:
+        found, todo = [], list(children[taxon_id])
+        while todo:
+            node = todo.pop()
+            found.append(node)
+            todo.extend(children.get(node, []))
+        out[taxon_id] = found
+    return out
+
+
+def add_rollups(
     taxonomy: pd.DataFrame, days: pd.DataFrame, hourly: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """`taxonomy`, `days` and `hourly` with the `COMBINED` series appended as taxa: summed counts
-    (`count`, `reverse`, `local` NaN only when no member has one), merged qualifiers and the birds-
-    weighted `timed` share; `members` (taxon ids) in `taxonomy`.
+    """`taxonomy`, `days` and `hourly` with each group taxon's series replaced by the sum over the
+    group and everything below it (`parent_taxon_id`): summed counts (`count`, `reverse`, `local`
+    NaN only when no member has one), merged qualifiers and the birds-weighted `timed` share.
 
-    Sums of all taxa no longer reconcile with `count.csv` once these are added, so the
-    reconciliation uses the release taxa.
+    `members` (taxon ids, the group first) in `taxonomy` for a group, None otherwise (a species
+    with subspecies below it is always one), and `rollup_excluded` for a group that is alone or
+    dominated by one taxon (`ROLLUP_MIN_BELOW`, `ROLLUP_MAX_BELOW`, `ROLLUP_MAX_SHARE`: share of
+    all birds counted under it), whose own series is left as it was. Sums of all taxa no longer
+    reconcile with `count.csv`, so the reconciliation uses the release taxa.
     """
-    rows, d_parts, h_parts = [], [days], [hourly]
-    for cid, spec in COMBINED.items():
-        m = taxonomy[taxonomy["scientific_name"].isin(spec["members"])]
-        missing = set(spec["members"]) - set(m["scientific_name"])
-        if missing:
-            raise KeyError(f"{cid}: no taxon {sorted(missing)} in the release taxonomy")
-        ids = m["taxon_id"].tolist()
-        rows.append(
-            {
-                "taxon_id": cid,
-                "english_name": spec["english_name"],
-                "scientific_name": spec["scientific_name"],
-                "taxon_rank": COMBINED_RANK,
-                "order": m["order"].iloc[0],
-                "family": m["family"].iloc[0],
-                "members": ids,
-            }
-        )
+    below = descendants(taxonomy.set_index("taxon_id")["parent_taxon_id"])
+    birds = days.groupby("taxon_id")["count"].sum()
+    rank = taxonomy.set_index("taxon_id")["taxon_rank"]
+    members, excluded = {}, set()
+    for taxon_id, kids in below.items():
+        own = birds.reindex([taxon_id, *kids]).fillna(0)
+        if rank[taxon_id] == "species":  # its subspecies are always part of it
+            members[taxon_id] = [taxon_id, *sorted(kids)]
+        elif (
+            not ROLLUP_MIN_BELOW <= len(kids) <= ROLLUP_MAX_BELOW
+            or own.max() > ROLLUP_MAX_SHARE * own.sum()
+        ):
+            excluded.add(taxon_id)
+        else:
+            members[taxon_id] = [taxon_id, *sorted(kids)]
+    d_parts = [days[~days["taxon_id"].isin(members)]]
+    h_parts = [hourly[~hourly["taxon_id"].isin(members)]]
+    for taxon_id, ids in members.items():
         dm = days[days["taxon_id"].isin(ids)].assign(timed_birds=lambda x: x["timed"] * x["count"])
         g = dm.groupby("date")
         dc = g[["count", "reverse", "local", "timed_birds"]].sum(min_count=1)
         dc["qualifiers"] = g["qualifiers"].agg(lambda x: "".join(sorted(set("".join(x)))))
         dc["timed"] = (dc["timed_birds"].fillna(0) / dc["count"]).where(dc["count"] > 0)
-        d_parts.append(dc.drop(columns="timed_birds").reset_index().assign(taxon_id=cid))
+        d_parts.append(dc.drop(columns="timed_birds").reset_index().assign(taxon_id=taxon_id))
         hm = hourly[hourly["taxon_id"].isin(ids)]
         h_parts.append(
-            hm.groupby(["date", "hour"])["count"].sum().reset_index().assign(taxon_id=cid)
+            hm.groupby(["date", "hour"])["count"].sum().reset_index().assign(taxon_id=taxon_id)
         )
-    t = pd.concat([taxonomy.assign(members=None), pd.DataFrame(rows)], ignore_index=True)
+    t = taxonomy.assign(
+        members=taxonomy["taxon_id"].map(members).astype(object),
+        rollup_excluded=taxonomy["taxon_id"].isin(excluded),
+    )
     return (
         t,
         pd.concat(d_parts, ignore_index=True)[days.columns],
         pd.concat(h_parts, ignore_index=True)[hourly.columns],
     )
+
+
+def has_members(members) -> bool:
+    """Whether a taxon's `members` value is a roll-up's list (not None or NaN)."""
+    return isinstance(members, list)
 
 
 # --- assembly ---------------------------------------------------------------
@@ -579,5 +621,20 @@ def records(df: pd.DataFrame) -> list[dict]:
     return [{c: _value(v) for c, v in row.items()} for row in df.to_dict("records")]
 
 
+def _plain(obj):
+    """Containers walked, every float through `_value`: `json` writes a float (numpy's too) as is,
+    NaN included, which is not JSON, and never calls `default` for it."""
+    if isinstance(obj, dict):
+        return {k: _plain(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_plain(v) for v in obj]
+    if isinstance(obj, float):
+        return None if not np.isfinite(obj) else _value(obj)
+    return obj
+
+
 def dumps(obj) -> str:
-    return json.dumps(obj, ensure_ascii=False, separators=(",", ":"), default=_value)
+    """Strict JSON (no NaN or Infinity: null instead), dates and frames as `_value` writes them."""
+    return json.dumps(
+        _plain(obj), ensure_ascii=False, separators=(",", ":"), default=_value, allow_nan=False
+    )

@@ -40,10 +40,10 @@ KINDS = ("hours", "day")  # hidden hours of a day still partly counted; whole da
 QUANTILE_COLUMNS = ["q2.5", "q10", "q90", "q97.5"]
 
 
-def hourly_effort(effort: pd.DataFrame) -> pd.Series:
-    """Hours counted per solar hour, by date, on counted days."""
+def slot_effort(effort: pd.DataFrame) -> pd.Series:
+    """Share of each solar slot counted, by date, on counted days."""
     e = effort[effort["state"] == "counted"]
-    return pd.Series(list(e["hourly"]), index=e["date"])
+    return pd.Series(list(e["slots"]), index=e["date"])
 
 
 # --- test 1: gap transplant -------------------------------------------------
@@ -56,22 +56,27 @@ def transplant(target: pd.DataFrame, donor_year: int, ctx: dict) -> pd.DataFrame
     Hidden birds are known from their hour; untimed birds are kept in proportion to the coverage
     kept.
     """
-    eff = hourly_effort(ctx["effort"])
+    eff = slot_effort(ctx["effort"])
     hourly = {d: h.set_index("hour")["count"] for d, h in ctx["hourly"].groupby("date")}
-    zero = np.zeros(E.HOURS)
+    zero = np.zeros(E.SLOTS)
     rows = []
     for _, r in target.iterrows():
-        tgt = eff.get(r["date"], zero) if r["c"] > 0 else zero
+        tgt_slots = eff.get(r["date"], zero) if r["c"] > 0 else zero
         donor_date = r["date"].replace(year=donor_year)
-        kept = np.minimum(tgt, eff.get(donor_date, zero))
+        kept_slots = np.minimum(tgt_slots, eff.get(donor_date, zero))
         doy = r["date"].dayofyear  # as `profile.coverage` indexes the profile
         p = ctx["profile"][int(np.clip(doy, *P.PROFILE_DOY)) - P.PROFILE_DOY[0]]
-        c_kept = float((p * kept).sum())
+        c_kept = float((p * kept_slots).sum())
+        tgt, kept = E.by_hour(tgt_slots), E.by_hour(kept_slots)
+        share = np.divide(kept, tgt, out=np.zeros(E.HOURS), where=tgt > 0)
+        exp_tgt, exp_kept = E.by_hour(p * tgt_slots), E.by_hour(p * kept_slots)
+        # a timed hour's birds are kept as its expected passage is: the minutes kept, weighted
+        # by the profile (by the minutes alone where the profile is zero)
+        share = np.divide(exp_kept, exp_tgt, out=share, where=exp_tgt > 0)
         birds_h = np.zeros(E.HOURS)
         if r["y"] > 0 and r["date"] in hourly:
             h = hourly[r["date"]]
             birds_h[h.index.to_numpy()] = h.to_numpy()
-        share = np.divide(kept, tgt, out=np.zeros(E.HOURS), where=tgt > 0)
         untimed = max(r["y"] - birds_h.sum(), 0.0)
         y_kept = (birds_h * share).sum() + (untimed * c_kept / r["c"] if r["c"] > 0 else 0.0)
         extra = r["extra"]

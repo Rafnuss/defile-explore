@@ -9,7 +9,7 @@ way it does.
 Settings:
 
 - `start_year`: first year the taxon's counts are comparable (`export.start_year`).
-- `trend`: whether the trend GAM is fitted (full tier, a species or a combined series).
+- `trend`: whether the trend GAM is fitted (full tier, a species or a group with members).
 - `age_years`, `sex_years`: years shown for age and sex (`demography.usable_years`). An override is
   a list of years, or `{from: Y}` / `{from: Y, to: Z}`: every year of the range with any bird aged
   (or sexed).
@@ -28,6 +28,7 @@ import yaml
 
 from defile_explore import demography as G
 from defile_explore import window as W
+from defile_explore.export import has_members
 from defile_explore.trend import TREND_RANKS
 
 OVERRIDES_FILE = os.path.join(os.path.dirname(__file__), "overrides.yaml")
@@ -39,8 +40,9 @@ LINK_TEMPLATES = {
     "ebird": "https://ebird.org/species/{ebird}",
     "ebird_status": "https://science.ebird.org/status-and-trends/species/{ebird}/abundance-map",
     "birds_of_the_world": "https://birdsoftheworld.org/bow/species/{ebird}/cur/introduction",
-    "ebba2": "https://ebba2.info/maps/species/{binomial}/ebba2/occurrence/",
+    "ebba2": "https://ebba2.info/maps/species/{binomial}/ebba2/abundance/",
     "trektellen": "https://www.trektellen.org/species/graph/3/" + str(TREKTELLEN_SITE) + "/{tk}/0",
+    "trektellen_day": "https://www.trektellen.org/count/view/" + str(TREKTELLEN_SITE) + "/{date}",
     "vogelwarte": "https://www.vogelwarte.ch/en/birds-of-switzerland/{value}/",
     "migration_atlas": "https://migrationatlas.org/node/{value}",
 }
@@ -114,7 +116,10 @@ def resolve(
     demography_rows = demography_rows[demography_rows["date"].dt.year <= last_year]
     s = {
         "start_year": Setting(int(taxon["start_year"])),
-        "trend": Setting(taxon["tier"] == "full" and taxon["taxon_rank"] in TREND_RANKS),
+        "trend": Setting(
+            taxon["tier"] == "full"
+            and (taxon["taxon_rank"] in TREND_RANKS or has_members(taxon.get("members")))
+        ),
         "age_years": Setting(G.usable_years(demography_rows, "age", counted)),
         "sex_years": Setting(G.usable_years(demography_rows, "sex", counted)),
     }

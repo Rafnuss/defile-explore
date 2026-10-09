@@ -57,13 +57,15 @@ from scipy.interpolate import BSpline
 from scipy.linalg import cho_factor, cho_solve, solve_triangular
 from scipy.special import gammaln
 
-from defile_explore.export import COMBINED_RANK, HOURS, in_window
+from defile_explore.export import HOURS, by_hour, in_window
 from defile_explore.profile import PROFILE_DOY, PROFILE_MIN_TIMED, coverage
+from defile_explore.season import chance_from_draws, passage_from_draws
 
 VARIANTS = ("season", "gam")
-# Ranks whose trend is exported: unidentified birds ("spuh", e.g. falcon sp.) trend with how hard
-# observers try to identify them, not with the birds.
-TREND_RANKS = ("species", COMBINED_RANK)
+# Ranks whose trend is exported: a species, or a group read as everything below it (`members`).
+# A group with nothing below it ("Acrocephalus sp.") trends with how hard observers try to
+# identify it, not with the birds.
+TREND_RANKS = ("species",)
 
 # Prior precision on coefficients no penalty reaches (intercept, spline null spaces): effectively
 # flat on the log scale (sd 100), and what keeps the overlapping constants identifiable.
@@ -103,6 +105,7 @@ IRLS_MAX_ITER = 100
 IRLS_TOL = 1e-8
 DRAWS = 1000
 QUANTILES = (0.025, 0.1, 0.5, 0.9, 0.975)
+FILLED_DAY_INTERVAL = (0.1, 0.9)  # a filled day: its mean and this 80% interval
 PASSAGE_QUANTILES = (0.1, 0.5, 0.9)  # passage dates: 10%, half and 90% of the season passed
 
 # One BLAS thread per worker (`worker_pool`): numpy's OpenBLAS otherwise starts one per core in every
@@ -668,13 +671,14 @@ def hour_dispersion(
     """Hourly over-dispersion `kappa` of one taxon: within a day, the passage of a coverage `m` is.
 
     gamma(kappa * m, kappa / rate) a priori, so given the day's birds, the birds of its counted
-    hours are Dirichlet-multinomial with weights kappa * p(h) * hours counted. Maximum likelihood
-    over the days timed to the hour (`PROFILE_MIN_TIMED`) with at least two counted hours; birds
-    timed to an hour with no coverage are left out. Without such days: `KAPPA_BOUNDS[1]`, Poisson.
-    Fitted on blocks of `block` solar hours (`KAPPA_BLOCK`), at least two of them counted.
+    hours are Dirichlet-multinomial with weights kappa * the profile's share in the minutes counted
+    of each hour. Maximum likelihood over the days timed to the hour (`PROFILE_MIN_TIMED`) with at
+    least two counted hours; birds timed to an hour with no coverage are left out. Without such
+    days: `KAPPA_BOUNDS[1]`, Poisson. Fitted on blocks of `block` solar hours (`KAPPA_BLOCK`), at
+    least two of them counted.
     """
     d = days[(days["count"] > 0) & (days["timed"] >= PROFILE_MIN_TIMED)]
-    counted = effort[effort["state"] == "counted"].set_index("date")["hourly"]
+    counted = effort[effort["state"] == "counted"].set_index("date")["slots"]
     d = d[d["date"].isin(counted.index)].reset_index(drop=True)
     if d.empty:
         return KAPPA_BOUNDS[1]
@@ -683,7 +687,7 @@ def hour_dispersion(
     birds = np.zeros((len(d), HOURS))
     np.add.at(birds, (pos[h["date"]].to_numpy(), h["hour"].to_numpy()), h["count"].to_numpy())
     doy = d["date"].dt.dayofyear.clip(*PROFILE_DOY) - PROFILE_DOY[0]
-    a = profile[doy.to_numpy()] * np.stack(d["date"].map(counted).to_numpy())
+    a = by_hour(profile[doy.to_numpy()] * np.stack(d["date"].map(counted).to_numpy()))
     on = a > 0
     birds = np.where(on, birds, 0)
     if block > 1:  # hours summed into blocks: a Dirichlet's kappa is unchanged by this
@@ -736,7 +740,12 @@ def fill_draws(
 
 
 def annual_totals(
-    f: Fit, frame: pd.DataFrame, n: int = DRAWS, seed: int = 0, kappa: float | None = None
+    f: Fit,
+    frame: pd.DataFrame,
+    n: int = DRAWS,
+    seed: int = 0,
+    kappa: float | None = None,
+    totals: np.ndarray | None = None,
 ) -> pd.DataFrame:
     """Gap-filled window total per year (observed birds + the posterior predictive of the hours and
     days not counted), its quantiles, the observed share, and the smooth expected total: the trend
@@ -746,8 +755,10 @@ def annual_totals(
     weather episodes on average: leaving them out altogether would lower the total, a sum of
     exponentials (Red Kite 2025: 13 500 against totals of 15 000-21 000), so the smooth is scaled
     by their mean effect, the geometric mean over years of total with episodes / total without.
+    `totals`: the draws of `fill_draws` (whole days) if already made.
     """
-    totals = fill_draws(f, frame, 1.0, n, seed, kappa)
+    if totals is None:
+        totals = fill_draws(f, frame, 1.0, n, seed, kappa)
     years = frame["year"].to_numpy()
     uy = np.unique(years)
     per_year = np.stack([totals[:, years == y].sum(axis=1) for y in uy], axis=1)
@@ -798,21 +809,29 @@ def episode_curves(f: Fit, years: np.ndarray) -> dict:
 
 
 def peak_doy(f: Fit, years: np.ndarray, n: int = 400, seed: int = 0) -> pd.DataFrame:
-    """Median passage date per year (the day by which half the season's birds have passed), of
-    the smooth season: without the year's weather episodes."""
+    """Median passage date per year (the day by which half the season's birds have passed), of the
+    smooth season (without the year's weather episodes), with its 80% band (`lo`, `hi`), and the
+    80% bands of the dates by which the first and last `PASSAGE_QUANTILES` have passed (`q10_lo`,
+    `q10_hi`, `q90_lo`, `q90_hi`)."""
     doy = np.arange(f.design.doy_range[0], f.design.doy_range[1] + 1)
     beta = f.draws(n, np.random.default_rng(seed))
+    lo, hi = PASSAGE_QUANTILES[0], PASSAGE_QUANTILES[-1]
     rows = []
     for yr in years:
         mu = np.exp(eta_draws(f, np.full(len(doy), yr), doy, beta, without=SMOOTH))
         cum = mu.cumsum(axis=1) / mu.sum(axis=1, keepdims=True)
-        med = doy[(cum < 0.5).sum(axis=1)]
+        date = {q: doy[np.minimum((cum < q).sum(axis=1), len(doy) - 1)] for q in (lo, 0.5, hi)}
         rows.append(
             {
                 "year": yr,
-                "lo": np.quantile(med, 0.1),
-                "mid": np.median(med),
-                "hi": np.quantile(med, 0.9),
+                "lo": np.quantile(date[0.5], 0.1),
+                "mid": np.median(date[0.5]),
+                "hi": np.quantile(date[0.5], 0.9),
+                **{
+                    f"q{round(q * 100)}_{k}": np.quantile(date[q], b)
+                    for q in (lo, hi)
+                    for k, b in (("lo", 0.1), ("hi", 0.9))
+                },
             }
         )
     return pd.DataFrame(rows)
@@ -833,6 +852,31 @@ def passage_quantiles(f: Fit, years: np.ndarray, qs=PASSAGE_QUANTILES) -> pd.Dat
 # --- export -----------------------------------------------------------------
 
 
+def filled_days(frame: pd.DataFrame, totals: np.ndarray, c: pd.Series) -> pd.DataFrame:
+    """Every day of `frame`: its coverage `c` (by date; 0 if not counted), the birds counted, and
+    its gap-filled full-day total from the `fill_draws` draws `totals`: the mean and an 80%
+    interval.
+
+    The model's value for the day, counted or not: the birds counted plus the posterior predictive
+    of the hours not counted, which leans on the day's own count when much of it was counted and
+    on the neighbouring days and the season when little or none was. Days counted below
+    `MIN_COVERAGE` are filled as days not counted, their birds added as they are. The mean, not
+    the median: the birds missed come in flocks, so their median is low (Common Wood Pigeon, c
+    0.5-0.9: medians sum to 0.87 of Σ count / c, means to 1.00), and means add up over days.
+    """
+    q = np.quantile(totals, FILLED_DAY_INTERVAL, axis=0)
+    return pd.DataFrame(
+        {
+            "date": frame["date"].to_numpy(),
+            "c": frame["date"].map(c).fillna(0.0).round(3).to_numpy(),
+            "count": (frame["y"] + frame["extra"]).to_numpy(),
+            "total": totals.mean(axis=0).round(1),
+            "q10": q[0],
+            "q90": q[1],
+        }
+    )
+
+
 def taxon_trend(
     days: pd.DataFrame,
     hourly: pd.DataFrame,
@@ -850,17 +894,23 @@ def taxon_trend(
     `annual`: per year, birds counted, the gap-filled total (median and 80%/95% intervals), the
     share counted, and the smooth expected total (trend without the year's level and weather
     episodes, every hour counted) with its 95% band. `passage`: the smooth season's median passage
-    date (day of year, 80% band). `passage_q`: the smooth season's 10/50/90% passage dates
-    (`passage_quantiles`). `season`: expected birds per full day on each day of year, smooth, in
-    the first and the last year. `episodes`: every year's season with and without its weather
-    episodes (`episode_curves`).
+    date (day of year, 80% band), and the 80% bands of the 10% and 90% dates. `passage_q`: the
+    smooth season's 10/50/90% passage dates (`passage_quantiles`). `season`: expected birds per
+    full day on each day of year, smooth, in the first and the last year. `episodes`: every year's
+    season with and without its weather episodes (`episode_curves`). `days`: every window day's
+    gap-filled full-day total (`filled_days`), from the same draws as `annual`. `season_fill`: the
+    same series for the season block (`season.season_block`): each day's mean, every year's passage
+    dates over the draws (`season.passage_from_draws`) and the chances
+    (`season.chance_from_draws`); not exported as such.
     """
-    frame = model_frame(days, effort, coverage(effort, profile), first_year, last_year, window)
+    c = coverage(effort, profile)
+    frame = model_frame(days, effort, c, first_year, last_year, window)
     years = np.arange(first_year, last_year + 1)
     doy_range = (int(frame["doy"].min()), int(frame["doy"].max()))
     kappa = hour_dispersion(days, hourly, effort, profile)
     f = fit(variant, frame, years, doy_range)
-    a = annual_totals(f, frame, seed=seed, kappa=kappa)
+    totals = fill_draws(f, frame, 1.0, seed=seed, kappa=kappa)
+    a = annual_totals(f, frame, seed=seed, kappa=kappa, totals=totals)
     a = a.drop(columns=["total"]).rename(columns={"q50": "total"})
     a["observed_share"] = a["observed"] / a["total"]
     birds = [c for c in a.columns if c not in ("year", "observed_share")]
@@ -879,4 +929,10 @@ def taxon_trend(
         "passage_q": passage_quantiles(f, years),
         "season": {"doy": np.arange(doy_range[0], doy_range[1] + 1), **curves},
         "episodes": episode_curves(f, years) if variant == "gam" else None,
+        "days": filled_days(frame, totals, c.set_axis(effort["date"])),
+        "season_fill": {
+            "days": frame[["year", "doy"]].assign(total=totals.mean(axis=0)),
+            "passage": passage_from_draws(frame, totals),
+            "chance": chance_from_draws(frame, totals, last_year),
+        },
     }

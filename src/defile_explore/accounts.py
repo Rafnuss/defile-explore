@@ -6,8 +6,8 @@ one short account of a taxon's season per year. Both are keyed by taxon id and c
 `text_en`. The build reads only these two files: the report and paper extracts they were written
 from are the editors' sources, not the page's.
 
-`accounts_block` gives a taxon its own accounts only; a combined series has none of its own, and
-its members' accounts stay on their own pages.
+`accounts_block` gives a taxon its own accounts only; a group's roll-up carries only the accounts
+written for the group taxon itself, and its members' accounts stay on their own pages.
 """
 
 import hashlib

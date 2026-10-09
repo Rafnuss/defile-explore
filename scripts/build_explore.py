@@ -2,8 +2,8 @@
 """Builds the Explore export for defileViz from the defile-dataset release tables.
 
 Reads the release in `data/count/dataset/` (copied there with `--dataset <dir>`) and writes
-`data/explore/`: `manifest.json`, `taxa.json`, `effort.json` and `species/<taxon_id>.json`
-(`defile_explore.pipeline.build_taxon`), with French names from the eBird taxonomy (downloaded
+`data/explore/`: `manifest.json`, `taxa.json` (with the picker's fields, `defile_explore.catalogue`),
+`effort.json` and `species/<taxon_id>.json` (`defile_explore.pipeline.build_taxon`), with French names from the eBird taxonomy (downloaded
 once, no key) and the written accounts from `content/accounts/`. The shared stage (~80 s of time-of-day profiles) and
 each taxon's trend fit and benchmark are cached in `data/cache/`, so a rebuild after a change to one block
 refits nothing. Copy `data/explore/` to defileViz's `public/data/explore/` to publish it.
@@ -27,6 +27,7 @@ import urllib.request
 import pandas as pd
 
 from defile_explore import accounts as A
+from defile_explore import catalogue as C
 from defile_explore import export as E
 from defile_explore import pipeline as L
 from defile_explore import release as R
@@ -128,20 +129,24 @@ def main(argv=None) -> int:
                 E.manifest(shared.metadata, days, effort, git_sha)
                 | {"accounts_sha256": A.fingerprint()},
             ),
-            "taxa.json": write(os.path.join(args.out, "taxa.json"), E.records(taxa)),
             "effort.json": write(
                 os.path.join(args.out, "effort.json"),
                 {"days": E.columns(effort), "annual": E.records(E.annual_effort(effort))},
             ),
         }
-    species_bytes, n_trend, flags = 0, 0, {}
+    species_bytes, n_trend, flags, pages = 0, 0, {}, {}
     with T.worker_pool(min(args.workers, len(jobs))) as ex:
         for taxon_id, out in ex.map(L.build_taxon, jobs, chunksize=4):
             species_bytes += write(os.path.join(args.out, "species", f"{taxon_id}.json"), out)
+            pages[taxon_id] = {k: out[k] for k in ("annual", "reliability")}
             n_trend += out["trend"] is not None
             for f in out["diagnostics"]["flags"]:
                 flags[f] = flags.get(f, 0) + 1
     sizes[f"species/ ({len(jobs)} files)"] = species_bytes
+    if not args.taxa:
+        highlights = C.load_highlights(taxa["taxon_id"])
+        taxa = C.catalogue(taxa, shared.taxonomy, ebird, pages, shared.last_year, highlights)
+        sizes["taxa.json"] = write(os.path.join(args.out, "taxa.json"), E.records(taxa))
 
     print(f"Explore export -> {args.out} in {time.time() - t0:.0f} s")
     for name, n in sizes.items():
@@ -151,6 +156,14 @@ def main(argv=None) -> int:
     if not args.taxa:
         print("  tiers:", taxa["tier"].value_counts().to_dict())
         print("  profiles:", taxa["profile"].value_counts().to_dict())
+        full = taxa[taxa["tier"] == "full"]
+        print("  groups (full tier):", full["group"].value_counts().to_dict())
+        print(
+            "  stories:",
+            full["story"].value_counts().to_dict(),
+            "highlights:",
+            full["highlight"].sum(),
+        )
         missing = taxa.loc[taxa["french_name"].isna(), "english_name"].tolist()
         if missing:
             print(f"  no French name ({len(missing)}): {', '.join(missing)}")

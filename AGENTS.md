@@ -11,12 +11,16 @@ and the commands.
 
 Principles:
 
-- **Empirical first.** Every panel shows the counts; a model (the trend GAM, the time-of-day
-  GAM) is drawn on top and labelled as such.
-- **One fit per taxon.** Panels derive from the taxon's fit and its data; nothing refits a model
-  to draw a panel.
+- **The counts are always shown.** Every panel draws the birds counted, or marks which days were
+  counted; what comes from a model (the trend GAM, the time-of-day GAM) is labelled as such.
+- **One complete series per taxon.** For a taxon with a trend, the numbers come from its fit: the
+  trend GAM's gap-filled days (`fill_draws`) make the season totals, the season block's shares,
+  passage dates and chances, each with its uncertainty from the draws (`season.source: gam`).
+  Without a trend, or where the trend's totals are hidden (`reliability.fills_season`), the season
+  is from the counts (`count / c`, interpolated across gaps). Nothing refits a model to draw a
+  panel.
 - **Effort is explicit.** A count is read with its coverage `c` (the share of the day's expected
-  passage counted). No adjusted value below `COVERAGE_MIN`, nothing adjusted before a taxon's
+  passage counted). No ratio `count / c` below `COVERAGE_MIN`, nothing adjusted before a taxon's
   start year.
 
 ## Independence from the forecast
@@ -28,15 +32,21 @@ for the user, logged in the table in `DECISIONS.md` -> Repository.
 
 ## The output is a contract with defileViz
 
-defileViz (`src/services/explore.js`, `src/components/explore/`) reads `taxa.json` and
-`species/<taxon_id>.json`, including `trend.annual`, `trend.passage`, `trend.season`,
-`trend.episodes`, `trend.theta`, `trend.kappa`, `profile` and `days`. The trend is fitted on the
-taxon's model window (`trend.window`), no longer always the default one. Renaming or reshaping a
-field breaks the page: change both repos together. The blocks added by `pipeline.build_taxon`
-(`season`, `daytime`, `age`, `sex`, `records`, `key_numbers`, `settings`, `window`, `links`,
-`accounts`, `benchmark`, `reliability`, `diagnostics`) are not read by defileViz yet; `scripts/explore_viewer.py` draws all of them and is
-where a block is checked first. Each block names its `method` (`name@version`): bump the version
-when what the block means changes.
+defileViz (`src/services/explore.js`, `src/components/explore/`) reads `taxa.json` (names,
+`tier`, and the picker's `taxon_order`, `group`, `season_birds`, `story`, `highlight` from
+`catalogue.py`),
+`effort.json` (`annual`) and `species/<taxon_id>.json`: `trend` (`annual`, `passage_q`, `season`,
+`episodes`, `window`, `theta`, `kappa`, `first_year`, `last_year`, `days`: every window day
+gap-filled, drawn by the year panel), `season` (`source`, `share`, `count`, `c`, `passage` with
+`q50_lo`/`q50_hi`, `chances`), `daytime` (`hours` over the main passage beside `expected`, the
+profile's prediction for the same days and minutes),
+`key_numbers`, `reliability`, `benchmark` (`gap`, `gap_trials`), `records`, `accounts`, `age`,
+`sex`, `window`, `settings.start_year`, `links`, `profile` (`day`: the curve the coverage figure of the method page draws), `annual` and `days`. Only
+`diagnostics` is not read. Renaming or reshaping a field breaks the page: change both repos
+together. `scripts/explore_viewer.py` draws every block and is where a block is checked first.
+Each block names its `method` (`name@version`): bump the version when what the block means
+changes. Hours of the day are solar time (`export.solar_shift`); defileViz converts them to the
+clock with the same formula (`solarShift`). The files are strict JSON (`export.dumps`: no NaN).
 
 `reliability` classes each trend claim (`totals`, `trend`, `season`) as `show`, `caveat` or `hide`
 with reason codes, and `elements` gives each drawn field resting on a claim its class
