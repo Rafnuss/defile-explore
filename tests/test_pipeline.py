@@ -104,7 +104,7 @@ def test_a_gap_filled_season_has_every_model_day_and_dates_from_the_draws():
     assert b["chances"]["at_least_10"][0] == pytest.approx(0.9)
 
 
-def test_a_year_with_no_bird_counted_keeps_no_dates_and_no_shares():
+def test_a_year_with_no_bird_counted_keeps_no_dates_and_zero_shares():
     f = frame({2020: [10, 20, 30], 2021: [0, 0, 0]})
     draws = np.tile([5.0, 10.0, 5.0, 1.0, 1.0, 1.0], (4, 1))  # the model puts birds in 2021
     fill = {
@@ -114,7 +114,9 @@ def test_a_year_with_no_bird_counted_keeps_no_dates_and_no_shares():
     }
     b = S.season_block(f, 2021, fill=fill)
     assert np.isnan(b["passage"].set_index("year").loc[2021, "q50"])
-    assert not np.isfinite(b["share"][1]).any() and np.isfinite(b["share"][0]).all()
+    assert np.isfinite(b["share"][0]).all()
+    counted = np.isfinite(b["count"][1])  # counted days hold no bird, the others stay blank
+    assert (b["share"][1][counted] == 0).all() and np.isnan(b["share"][1][~counted]).all()
 
 
 def test_chances_count_days_reaching_each_threshold():

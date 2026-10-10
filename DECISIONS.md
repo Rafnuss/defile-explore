@@ -393,6 +393,10 @@ count) and against the same interpolation keeping partial counts (`interp_kept`)
 So a complete series from the GAM's draws is the better base for the day-scale outputs (season
 shares, passage dates, chances), the more so the gappier the year. Switched: next entry.
 
+**A counted day of a year with no bird in the model window has share 0, not null (`season@4`,
+2026-10-09).** The year's total is 0, so the share was undefined and the plot drew the year as not
+counted (Water Pipit-like rows: 1993, 2001, 2002); a day counted is now drawn as counted, no bird.
+
 **One complete series per taxon: the season block from the trend's gap-filled days (`season@3`,
 2026-10-09, decided by the user after the test above).** For a taxon with a trend whose totals are
 not hidden (`reliability.fills_season`: 67 of the 74 trend taxa on the 2026-10 release), every day

@@ -28,7 +28,7 @@ import pandas as pd
 
 from defile_explore.profile import COVERAGE_MIN
 
-METHOD = "season@3"
+METHOD = "season@4"
 PASSAGE_QUANTILES = (0.1, 0.5, 0.9)  # as the smooth season's (`trend.PASSAGE_QUANTILES`)
 CHANCE_YEARS = 10  # chances are for the last this many complete seasons
 CHANCE_THRESHOLDS = (1, 10, 100, 1000)  # at least this many birds in the day
@@ -190,6 +190,9 @@ def season_block(
     birds[["year", "doy"]] = frame[["year", "doy"]]
     count = birds.pivot(index="year", columns="doy", values="n").reindex_like(view_rate)
     c = frame.pivot(index="year", columns="doy", values="c").reindex_like(view_rate)
+    # a year with no bird in the model window has no total to divide by: its counted days hold none
+    empty = filled.sum(axis=1).reindex(share.index).le(0)
+    share = share.mask(count.notna() & empty.to_numpy()[:, None], 0.0)
     return {
         "method": METHOD,
         "source": "counts" if fill is None else "gam",
