@@ -146,7 +146,7 @@ def main(argv=None) -> int:
     with T.worker_pool(min(args.workers, len(jobs))) as ex:
         for taxon_id, out in ex.map(L.build_taxon, jobs, chunksize=4):
             species_bytes += write(os.path.join(args.out, "species", f"{taxon_id}.json"), out)
-            pages[taxon_id] = {k: out[k] for k in ("annual", "reliability")}
+            pages[taxon_id] = {k: out[k] for k in ("annual", "reliability", "links")}
             n_trend += out["trend"] is not None
             for f in out["diagnostics"]["flags"]:
                 flags[f] = flags.get(f, 0) + 1
@@ -154,6 +154,8 @@ def main(argv=None) -> int:
     if not args.taxa:
         highlights = C.load_highlights(taxa["taxon_id"])
         taxa = C.catalogue(taxa, shared.taxonomy, ebird, pages, shared.last_year, highlights)
+        # Each taxon's links, for the list of a group's members in defileViz
+        taxa["links"] = taxa["taxon_id"].map(lambda i: pages[i]["links"])
         sizes["taxa.json"] = write(os.path.join(args.out, "taxa.json"), E.records(taxa))
 
     print(f"Explore export -> {args.out} in {time.time() - t0:.0f} s")

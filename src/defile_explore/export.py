@@ -14,7 +14,9 @@ Files, written by `scripts/build_explore.py` (one `build_*` function each):
   the default window and the tier thresholds.
 - `taxa.json`: one entry per taxon, with names (French from the eBird taxonomy), rank,
   occurrence tier, totals, and `start_year`, the first year its counts are comparable from. A group
-  taxon ("harrier sp.") is read as everything below it (`add_rollups`), with its `members`.
+  taxon ("harrier sp.") is read as everything below it (`add_rollups`), with its `members`; each
+  taxon's `own_days` and `own_birds`, its records under its own name before the sums; and its
+  `links`, as in its species file.
 - `effort.json`: one entry per local day with any survey: hours counted (union of complete
   surveys, `survey_complete`, weather stops apart), first/last time, hours covered per solar hour
   (weather stops included: no bird passed), and the hours of weather stops and incomplete surveys.
@@ -436,7 +438,7 @@ def build_taxa(
         birds=("count", "sum"),
     )
     cols = ["taxon_id", "english_name", "scientific_name", "taxon_rank", "order", "family"]
-    extra = [c for c in ("members", "rollup_excluded") if c in taxonomy]
+    extra = [c for c in ("members", "own_days", "own_birds", "rollup_excluded") if c in taxonomy]
     t = taxonomy[cols + extra].join(occ, on="taxon_id")
     if ebird is not None:
         t.insert(1, "french_name", french_names(taxonomy, ebird))
@@ -479,7 +481,8 @@ def add_rollups(
     NaN only when no member has one), merged qualifiers and the birds-weighted `timed` share.
 
     `members` (taxon ids, the group first) in `taxonomy` for a group, None otherwise (a species
-    with subspecies below it is always one), and `rollup_excluded` for a group that is alone or
+    with subspecies below it is always one), `own_days` and `own_birds` (the taxon's own records,
+    before the sums), and `rollup_excluded` for a group that is alone or
     dominated by one taxon (`ROLLUP_MIN_BELOW`, `ROLLUP_MAX_BELOW`, `ROLLUP_MAX_SHARE`: share of
     all birds counted under it), whose own series is left as it was. Sums of all taxa no longer
     reconcile with `count.csv`, so the reconciliation uses the release taxa.
@@ -517,9 +520,13 @@ def add_rollups(
         h_parts.append(
             hm.groupby(["date", "hour"])["count"].sum().reset_index().assign(taxon_id=taxon_id)
         )
+    # Each taxon's own days and birds, before the sums: what each name in a group adds
+    d = days[(days["count"] > 0) | days["qualifiers"].str.contains(PRESENCE_ONLY)]
     t = taxonomy.assign(
         members=taxonomy["taxon_id"].map(members).astype(object),
         rollup_excluded=taxonomy["taxon_id"].isin(excluded),
+        own_days=taxonomy["taxon_id"].map(d.groupby("taxon_id").size()),
+        own_birds=taxonomy["taxon_id"].map(birds),
     )
     return (
         t,

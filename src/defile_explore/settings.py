@@ -90,9 +90,11 @@ def year_range(rows: pd.DataFrame, field: str, spec) -> list[int]:
 def rule_links(taxon: dict) -> dict:
     """Links derived from the taxonomy: by eBird code and Trektellen id, and EBBA2 by binomial."""
     out = {}
-    if isinstance(taxon.get("ebird_code"), str) and taxon["taxon_rank"] == "species":
-        for key in ("ebird", "ebird_status", "birds_of_the_world"):
-            out[key] = LINK_TEMPLATES[key].format(ebird=taxon["ebird_code"])
+    code = taxon.get("ebird_code")
+    if isinstance(code, str):  # eBird has a page for groups too ("harrier sp."), the others don't
+        keys = ("ebird", "ebird_status", "birds_of_the_world")
+        for key in keys if taxon["taxon_rank"] == "species" else ("ebird",):
+            out[key] = LINK_TEMPLATES[key].format(ebird=code)
     if taxon["taxon_rank"] == "species" and len(str(taxon["scientific_name"]).split()) == 2:
         out["ebba2"] = LINK_TEMPLATES["ebba2"].format(
             binomial=taxon["scientific_name"].replace(" ", "-")
