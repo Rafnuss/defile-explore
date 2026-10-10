@@ -12,8 +12,9 @@ Files, written by `scripts/build_explore.py` (one `build_*` function each):
 
 - `manifest.json`: when and from which dataset build it was made, the date range, partial years,
   the default window and the tier thresholds.
-- `taxa.json`: one entry per taxon, with names (French from the eBird taxonomy), rank,
-  occurrence tier, totals, and `start_year`, the first year its counts are comparable from. A group
+- `taxa.json`: one entry per taxon, with names (French from the eBird taxonomy), `ebird_code`
+  (the viewer's URL for it), rank, occurrence tier, totals, and `start_year`, the first year its
+  counts are comparable from. A group
   taxon ("harrier sp.") is read as everything below it (`add_rollups`), with its `members`; each
   taxon's `own_days` and `own_birds`, its records under its own name before the sums; and its
   `links`, as in its species file.
@@ -438,7 +439,11 @@ def build_taxa(
         birds=("count", "sum"),
     )
     cols = ["taxon_id", "english_name", "scientific_name", "taxon_rank", "order", "family"]
-    extra = [c for c in ("members", "own_days", "own_birds", "rollup_excluded") if c in taxonomy]
+    extra = [
+        c
+        for c in ("ebird_code", "members", "own_days", "own_birds", "rollup_excluded")
+        if c in taxonomy
+    ]
     t = taxonomy[cols + extra].join(occ, on="taxon_id")
     if ebird is not None:
         t.insert(1, "french_name", french_names(taxonomy, ebird))
